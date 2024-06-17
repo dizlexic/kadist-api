@@ -11,5 +11,4 @@ python kadist_videos.py
 #python external_videos.py
 #60 Second Interviews from People Pages (links)
 python kview_videos.py
-python download_videos.py
-python generate_clips.py
+python download_optimized.py
