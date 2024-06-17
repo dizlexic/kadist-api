@@ -129,7 +129,7 @@ def write_manifest(video_type: str, manifest: Dict, manifest_folder: str):
     # if not manifest['image_url']:
     manifest["image_data_uri"] = image_url_to_data_uri(manifest["image_url"])
 
-    # print(" *", f"write_manifest [type: {video_type}], ID: {manifest['id']}")
+    print(" *", f"write_manifest [type: {video_type}], ID: {manifest['id']}")
 
     manifest["type"] = video_type.lower()
     with open(f"{manifest_folder}/{manifest['id']}.json", "w", encoding="utf-8") as f:
