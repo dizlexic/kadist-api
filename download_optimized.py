@@ -99,9 +99,9 @@ def download_video_file_to_mp4(url: str):
         return dest_file
     else:
         cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
+        call = os.system(cmd)
         result = os.popen(cmd).read().strip()
-        if result:
-            print("result", result)
+        if call == 0:
             return dest_file
         else:
             print("could not download file from", url, "to", dest_file)
