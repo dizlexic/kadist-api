@@ -43,7 +43,7 @@ def generate_kadist_video_list(pages=15):
     for n in tqdm(list(range(1, pages + 1))):
         for (region, region_url_fragment) in tqdm(regions, leave=False):
             url = (
-                f"http://kadist.mooresolutions.io/region/{region_url_fragment}/page/%d/?post_type=program"
+                f"https://kadist.org/region/{region_url_fragment}/page/%d/?post_type=program"
                 % (n)
             )
             time.time()
