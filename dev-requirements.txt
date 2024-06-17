@@ -1,0 +1,14 @@
+requests
+requests-cache
+boto
+tqdm
+pillow
+git+https://github.com/LIAAD/yake
+youtube-search-python
+flake8
+autoflake
+black
+titlecase
+beautifulsoup4
+lxml
+yt-dlp

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>KadistTV Admin</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic" />
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+
+    <style>
+      .main {
+        padding: 10px;
+        max-width: 960px;
+        width: 100%;
+        margin: 100px auto 500px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="main">
+      <header class="hero">
+        <div class="content">
+          <h1>KadistTV Admin</h1>
+          <article class="card">
+            <h3>
+              <header>
+                <div class="flex demo">
+                  <div>
+                    <span
+                      >Interviews:
+                      <span class="label success"
+                        >{{ interview_videos|length }}</span
+                      ></span
+                    >
+                  </div>
+                  <div>
+                    <span
+                      >KVL:
+                      <span class="label success"
+                        >{{ kvl_videos|length }}</span
+                      ></span
+                    >
+                  </div>
+                  <div>
+                    <span
+                      >Ext.:
+                      <span class="label success"
+                        >{{ external_videos|length }}</span
+                      ></span
+                    >
+                  </div>
+                  <div>
+                    <span
+                      >KView:
+                      <span class="label success"
+                        >{{ kview_videos|length }}</span
+                      ></span
+                    >
+                  </div>
+                  <div>
+                    <span
+                      >Total:
+                      <span class="label success"
+                        >{{ index|length }}</span
+                      ></span
+                    >
+                  </div>
+                  <div>
+                    <span
+                      >Pinned:
+                      <span class="label success"
+                        >{{ pinned_videos|length }}</span
+                      ></span
+                    >
+                  </div>
+                </div>
+              </header>
+            </h3>
+          </article>
+        </div>
+      </header>
+
+      <section class="content">
+        {% if sorted_videos %}
+
+        <table class="primary" width="100%">
+          <tr>
+            <th>Watched Times</th>
+            <th>Title</th>
+            <th>Cover Art</th>
+            <th>Link</th>
+          </tr>
+          {% for video_id, popularity in sorted_videos %}
+          <tr>
+            <td><span class="label success">{{ popularity }}</span></td>
+            <td>{{ index[video_id]['title'] }}</td>
+            <td>
+              <img src="{{ index[video_id]['image_url'] }}" width="192" />
+            </td>
+            <td>
+              <a href="{{ index[video_id]['permalink'] }}" target="_blank"
+                >▶ Link</a
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+
+        {% else %}
+        <article class="card">
+          <header>
+            <center>
+              <h3>
+                No feedback data available:<br />
+                <pre>POST /ktv_api/watched/video_id</pre>
+              </h3>
+            </center>
+          </header>
+        </article>
+        {% endif %}
+      </section>
+
+      <br />
+      <footer>
+        <article class="card">
+          <header>
+            <a href="/" target="_blank">▶ API Swagger</a>
+          </header>
+        </article>
+      </footer>
+    </main>
+  </body>
+
+  <script>
+    $(document).ready(function () {
+      $(".delete-collection").on("click", function () {
+        console.log("delete: " + $(this).data("client-id"));
+        $.ajax({
+          url: "/wheel/analyze/" + $(this).data("client-id"),
+          type: "DELETE",
+          success: function (result) {
+            location.reload();
+          },
+        });
+      });
+    });
+  </script>
+</html>

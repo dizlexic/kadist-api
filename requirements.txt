@@ -1,0 +1,11 @@
+pip
+flask
+flask-restx
+flask-cors
+werkzeug
+gunicorn
+whoosh
+boto
+tqdm
+pre-commit
+python-dotenv
