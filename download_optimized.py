@@ -224,12 +224,13 @@ def fetch_kvl(args, manifest_folder: str):
                 }
                 write_manifest("kvl", video, manifest_folder)
                 clip_duration = 20.0
-                print("creating new clip for", video_id, video["mp4"], video["mp4_length"])
-                clip_manifest = generate_clip_and_write_to_s3(video, clip_duration)
-                if clip_manifest:
-                    write_manifest("kvl", clip_manifest, manifest_folder)
-                else:
-                    print("Failed to generate clip")
+                if video_duration:
+                    print("creating new clip for", video_id, video["mp4"], video["mp4_length"])
+                    clip_manifest = generate_clip_and_write_to_s3(video, clip_duration)
+                    if clip_manifest:
+                        write_manifest("kvl", clip_manifest, manifest_folder)
+                    else:
+                        print("Failed to generate clip")
             else:
                 print("No video id for url", url, video_id, video_duration)
 
@@ -459,12 +460,15 @@ def fetch_kviews(args, manifest_folder):
 
             write_manifest(video_type, manifest, manifest_folder)
             clip_duration = 20.0
-            print("creating new clip for", video_id, manifest["mp4"], manifest["mp4_length"])
-            clip_manifest = generate_clip_and_write_to_s3(manifest, clip_duration)
-            if clip_manifest:
-                write_manifest("kvl", clip_manifest, manifest_folder)
-            else:
-                print("Failed to generate clip")
+            # clip
+            if video_duration:
+                print("creating new clip for", video_id, manifest["mp4"], manifest["mp4_length"])
+                clip_manifest = generate_clip_and_write_to_s3(manifest, clip_duration)
+                if clip_manifest:
+                    write_manifest("kvl", clip_manifest, manifest_folder)
+                else:
+                    print("Failed to generate clip")
+
         else:
             print(" *", f"fetch_kviews, skipping {kview['video_url']} - NOT FOUND")
 
