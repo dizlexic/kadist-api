@@ -28,8 +28,8 @@ load_dotenv()
 config = dotenv_values(".env")
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/tmp')
 bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
-source_ip = os.getenv("KAPI_SOURCE_IP", "http://174.138.94.71")
-source_url = os.getenv("KAPI_SOURCE_URL", "https://kadist.mooresolutions.io")
+source_ip = os.getenv("KAPI_SOURCE_IP")
+source_url = os.getenv("KAPI_SOURCE_URL")
 
 
 requests_cache.CachedSession(
@@ -98,12 +98,10 @@ def download_video_file_to_mp4(url: str):
     if os.path.exists(dest_file):
         return dest_file
     else:
-        cmd = f"/usr/bin/ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
-        call = os.system(cmd)
+        cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
         result = os.popen(cmd).read().strip()
         if result:
             print("result", result)
-        if call == 0:
             return dest_file
         else:
             print("could not download file from", url, "to", dest_file)
@@ -144,7 +142,7 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
             # conditionally save mp4
             s3helper.put_file(video_object, local_tmp_file, only_if_modified=True)
             # remove local tmp file
-            cmd = f"/usr/bin/ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
+            cmd = f"ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
             video_duration = os.popen(cmd).read().strip()
             if cleanup:
                 print(f"save_video_as_mp4::cleaning up: {local_tmp_file}")
@@ -159,7 +157,7 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
     else:
         local_tmp_file = download_video_file_to_mp4(url)
         if local_tmp_file:
-            cmd = f"/usr/bin/ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
+            cmd = f"ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
             video_duration = os.popen(cmd).read().strip()
             print(f"save_video_as_mp4::video_duration: Video exists remote")
             if cleanup:
@@ -499,7 +497,7 @@ def _get_video_length(video_id: str, mp4: str) -> float:
 
     src = local_file if os.path.exists(local_file) else mp4
 
-    cmd = f"/usr/bin/ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {src}"
+    cmd = f"ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {src}"
 
     result = os.popen(cmd).read().strip()
 
