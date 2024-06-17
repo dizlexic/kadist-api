@@ -168,7 +168,8 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
             print(f"save_video_as_mp4::video_duration: Video exists remote")
             os.remove(local_tmp_file)
             return video_id, video_duration
-        print("No Local TMP file for ", url)
+
+        print("file already exists on bucket ", video_id)
         return video_id, False
 
 
