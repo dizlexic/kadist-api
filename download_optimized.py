@@ -94,13 +94,6 @@ def generate_tags(text: str) -> List[str]:
 def generate_abbreviated_description(description: str) -> str:
     return description.split(".")[0]
 
-args = ["-i", "/var/www/Intro30.mp4",
-        "-i", "/var/www/temp/videoHD.mp4",
-        "-i", "/var/www/Credits30.mp4",
-        "-filter_complex", "[0:0] [0:1] [1:0] [1:1] [2:0] [2:1] concat=n=3:v=1:a=1 [v] [a]",
-        "-map", "[v]",
-        "-map", "[a]",
-        "/var/www/temp/merged.mp4"]
 
 def download_video_file_to_mp4(url: str):
     dest_file = f"{TMP}/{generate_id(url)}.mp4"
@@ -109,14 +102,13 @@ def download_video_file_to_mp4(url: str):
         return dest_file
     else:
         print("no local file attempting to download")
-        cmd = ["ffmpeg", "-y", "-nostats", "-loglevel", '0', "-headers", "$'referer: https://kadist.org'","-i", url, "-map", "0:p:1?", "-c", "copy", "-bsf:a", "aac_adtstoasc", dest_file]
-        try:
-            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError("command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
-
-        return dest_file
-
+        cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
+        call = os.system(cmd)
+        if call == 0:
+            return dest_file
+        else:
+            print("could not download file", cmd)
+            return False
 
 
 def write_manifest(video_type: str, manifest: Dict, manifest_folder: str):
@@ -152,14 +144,12 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
             # conditionally save mp4
             s3helper.put_file(video_object, local_tmp_file, only_if_modified=True)
             # remove local tmp file
-            cmd = f"ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
+            cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
             video_duration = os.popen(cmd).read().strip()
             if cleanup:
                 print(f"save_video_as_mp4::cleaning up: {local_tmp_file}")
                 # remove local tmp file
                 os.remove(local_tmp_file)
-
-
             print(f"save_video_as_mp4::video_duration: {video_duration}")
         else:
             print(" *", f"skipping [{url}] not mp4")
@@ -168,7 +158,7 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
         print("file already exists on bucket ", video_id)
         local_tmp_file = download_video_file_to_mp4(url)
         if local_tmp_file:
-            cmd = f"ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
+            cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
             video_duration = os.popen(cmd).read().strip()
             print(f"save_video_as_mp4::video_duration: Video exists remote")
             if cleanup:
@@ -508,7 +498,7 @@ def _get_video_length(video_id: str, mp4: str) -> float:
 
     src = local_file if os.path.exists(local_file) else mp4
 
-    cmd = f"ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {src}"
+    cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {src}"
 
     result = os.popen(cmd).read().strip()
 
