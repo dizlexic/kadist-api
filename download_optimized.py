@@ -105,7 +105,7 @@ def download_video_file_to_mp4(url: str):
         cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
         call = os.system(cmd)
         formatted_command = shlex.split(cmd)
-        result = subprocess.run(formatted_command, capture_output=True, text=True, check=True)
+        result = subprocess.run(formatted_command, capture_output=True, text=True, check=False)
 
         print(result.stdout)
 
