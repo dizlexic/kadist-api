@@ -201,8 +201,12 @@ def fetch_kvl(args, manifest_folder: str):
             # grab the video from kadist and put it on arpedia's bucket
             video_id, video_duration = save_video_as_mp4(x["video_url"], False)
             if video_id:
-                if type(x["region"]) == list:
-                    x["region"] = x["region"][0]
+                if "region" in x and type(x["region"]) == list:
+                    x["region"] = x["region"][0] # one off issue
+
+                if not "region" in x:
+                    x["region"] = "unknown"
+
                 video = {
                     "id": video_id,
                     "title": "{} - {}".format(x["artist_name"], x["title"]),
