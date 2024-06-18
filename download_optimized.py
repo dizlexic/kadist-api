@@ -105,7 +105,7 @@ def download_video_file_to_mp4(url: str):
         cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
         formatted_command = shlex.split(cmd)
         try:
-            subprocess.check_output(formatted_command, shell=True, stderr=subprocess.STDOUT)
+            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             raise RuntimeError("command '{}' return with error (code {}): {}".format(e.cmd, e.returncode, e.output))
 
