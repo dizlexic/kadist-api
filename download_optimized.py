@@ -94,6 +94,13 @@ def generate_tags(text: str) -> List[str]:
 def generate_abbreviated_description(description: str) -> str:
     return description.split(".")[0]
 
+args = ["-i", "/var/www/Intro30.mp4",
+        "-i", "/var/www/temp/videoHD.mp4",
+        "-i", "/var/www/Credits30.mp4",
+        "-filter_complex", "[0:0] [0:1] [1:0] [1:1] [2:0] [2:1] concat=n=3:v=1:a=1 [v] [a]",
+        "-map", "[v]",
+        "-map", "[a]",
+        "/var/www/temp/merged.mp4"]
 
 def download_video_file_to_mp4(url: str):
     dest_file = f"{TMP}/{generate_id(url)}.mp4"
@@ -102,8 +109,7 @@ def download_video_file_to_mp4(url: str):
         return dest_file
     else:
         print("no local file attempting to download")
-        cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
-        formatted_command = shlex.split(cmd)
+        cmd = ["ffmpeg", "-y", "-nostats", "-loglevel", '0', "-headers", "$'referer: https://kadist.org'","-i", url, "-map", "0:p:1?", "-c", "copy", "-bsf:a", "aac_adtstoasc", dest_file]
         try:
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
