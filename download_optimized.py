@@ -485,7 +485,7 @@ def _clipify(
     if not forcedownload and os.path.exists(dest_file):
         return dest_file
     else:
-        cmd = f"/ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy {dest_file}"
+        cmd = f"ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy {dest_file}"
         print(" *", cmd)
         if os.system(cmd) == 0:
             return dest_file
