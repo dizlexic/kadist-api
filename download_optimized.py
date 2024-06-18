@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import shlex
 
 import yake
 import json
@@ -9,6 +10,7 @@ import requests
 import requests_cache
 import hashlib
 import time
+import subprocess
 
 from datetime import datetime
 from s3helper import S3Helper
@@ -96,15 +98,22 @@ def generate_abbreviated_description(description: str) -> str:
 def download_video_file_to_mp4(url: str):
     dest_file = f"{TMP}/{generate_id(url)}.mp4"
     if os.path.exists(dest_file):
+        print("local file exits serving it back!")
         return dest_file
     else:
+        print("no local file attempting to download")
         cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
         call = os.system(cmd)
-        result = os.popen(cmd).read().strip()
+        formatted_command = shlex.split(cmd)
+        result = subprocess.call(formatted_command)
+
+        print(result.stdout)
+
+        print(result.stderr)
         if call == 0:
             return dest_file
         else:
-            print("could not download file from", url, "to", dest_file)
+            print("could not download file", cmd)
             return False
 
 
@@ -129,7 +138,6 @@ def write_manifest(video_type: str, manifest: Dict, manifest_folder: str):
 
 
 def save_video_as_mp4(url: str, cleanup: bool = True):
-
     video_id = generate_id(url)
     video_duration = None
     video_object = f"{video_id}.mp4"
@@ -155,6 +163,7 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
             print(" *", f"skipping [{url}] not mp4")
         return video_id, video_duration
     else:
+        print("file already exists on bucket ", video_id)
         local_tmp_file = download_video_file_to_mp4(url)
         if local_tmp_file:
             cmd = f"ffmpeg -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
@@ -164,7 +173,7 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
                 os.remove(local_tmp_file)
             return video_id, video_duration
 
-        print("file already exists on bucket ", video_id)
+        print("unable to download", video_id)
         return video_id, False
 
 
