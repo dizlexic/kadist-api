@@ -485,7 +485,7 @@ def _clipify(
     if not forcedownload and os.path.exists(dest_file):
         return dest_file
     else:
-        cmd = f"/usr/bin/ffmpeg -y -nostats -loglevel 0 -ss {offset} -i {mp4} -t {duration} -c copy {dest_file}"
+        cmd = f"/ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy {dest_file}"
         print(" *", cmd)
         if os.system(cmd) == 0:
             return dest_file
@@ -517,7 +517,7 @@ def generate_clip_and_write_to_s3(
     clip_exists = s3helper.file_exists(clip_object)
 
     if video_exists:
-        print('video exists')
+        print('video clip exists', video_id)
         forcedownload = forcedownload or offset != "auto"
 
         if "mp4_length" not in video:
