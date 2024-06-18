@@ -146,6 +146,7 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
             # remove local tmp file
             cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
             video_duration = os.popen(cmd).read().strip()
+            print("video duration", video_duration)
             if cleanup:
                 print(f"save_video_as_mp4::cleaning up: {local_tmp_file}")
                 # remove local tmp file
@@ -247,7 +248,6 @@ def fetch_kadist(args, manifest_folder: str):
         # START VIDEO REMOVAL
         def save_video_create_manifest(self, dest_file):
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
-            time.wait(5)
             clipManifest = self.generate_save_clip()
             if os.path.exists(dest_file):
                 print(f" *", f"removing {dest_file}")
@@ -259,8 +259,9 @@ def fetch_kadist(args, manifest_folder: str):
                 print(" *", "No clip manifest found", dest_file)
 
         def generate_save_clip(self):
+            print("yt dl ")
             duration = self.manifest.duration if self.manifest.duration else None
-            return generate_clip_and_write_to_s3(self.manifest, duration)
+            return generate_clip_and_write_to_s3(self.manifest, 20.0)
         def callback(self, d):
             if d["status"] == "finished":
                 self.save_video_create_manifest(d["filename"])
@@ -341,7 +342,7 @@ def fetch_external(args, manifest_folder):
 
         def save_video_create_manifest(self, dest_file):
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
-            generate_clip_and_write_to_s3()
+            generate_clip_and_write_to_s3(self.manifest, self.video_type)
             if os.path.exists(dest_file):
                 print(f" *", f"removing {dest_file}")
                 os.remove(dest_file)
@@ -482,6 +483,10 @@ def _clipify(
         video_id: str, mp4: str, offset: float, duration: float, forcedownload: bool = False
 ) -> str:
     dest_file = f"{TMP}/{video_id}_clip.mp4"
+    source_file = f"{TMP}/{video_id}.mp4"
+    if not os.path.exists(source_file):
+        print('source file doesnt exist :(')
+
     if not forcedownload and os.path.exists(dest_file):
         return dest_file
     else:
@@ -508,15 +513,20 @@ def _get_video_length(video_id: str, mp4: str) -> float:
 def generate_clip_and_write_to_s3(
         video: Dict, duration: float, forcedownload: bool = False, offset="auto"
 ):
-    video_id, mp4 = video["id"], video["mp4"]
+    video_id = video["id"]
 
     video_object = f"{video_id}.mp4"
     clip_object = f"{video_id}_clip_{int(duration)}s.mp4"
 
+    print('generating clip from', video_object, 'and naming it', clip_object)
     video_exists = s3helper.file_exists(video_object)
     clip_exists = s3helper.file_exists(clip_object)
+    local_file = f"{TMP}/{video_id}.mp4"
+    local_exists = os.path.exists(local_file)
 
-    if video_exists:
+    mp4 = local_file if local_exists else video["mp4"]
+
+    if video_exists or local_exists:
         print('video clip exists', video_id)
         forcedownload = forcedownload or offset != "auto"
 
@@ -549,7 +559,7 @@ def generate_clip_and_write_to_s3(
         if not forcedownload and clip_exists:
             video["mp4_clip"] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
         else:
-            print("making clip :D")
+            print("making clip")
             local_clip_file = _clipify(video_id, mp4, actual_offset, duration, forcedownload)
 
             if local_clip_file:
@@ -562,7 +572,7 @@ def generate_clip_and_write_to_s3(
                 ] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
 
         return video
-
+    print("clip gen failed with no video exists?")
     return False
 
 
