@@ -517,12 +517,14 @@ def generate_clip_and_write_to_s3(
     clip_exists = s3helper.file_exists(clip_object)
 
     if video_exists:
-
+        print('video exists')
         forcedownload = forcedownload or offset != "auto"
 
         if "mp4_length" not in video:
+            print('no mp4_length')
             video_length = _get_video_length(video_id, mp4)
             if video_length:
+                print('video length', video_length)
                 video["mp4_length"] = video.get("mp4_length", video_length)
             else:
                 print(" *", f"ERROR: could not get video length for {video_id}")
@@ -547,10 +549,8 @@ def generate_clip_and_write_to_s3(
         if not forcedownload and clip_exists:
             video["mp4_clip"] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
         else:
-
-            local_clip_file = _clipify(
-                video_id, mp4, actual_offset, duration, forcedownload
-            )
+            print("making clip :D")
+            local_clip_file = _clipify(video_id, mp4, actual_offset, duration, forcedownload)
 
             if local_clip_file:
                 s3helper.put_file(clip_object, local_clip_file)
