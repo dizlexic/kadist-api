@@ -102,7 +102,7 @@ def download_video_file_to_mp4(url: str):
         return dest_file
     else:
         print("no local file attempting to download")
-        cmd = f"ffmpeg -y -nostats -loglevel debug -headers 'Referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
+        cmd = f"ffmpeg -y -nostats -loglevel error -headers 'Referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
         call = os.system(cmd)
         if call == 0:
             return dest_file
