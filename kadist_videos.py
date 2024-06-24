@@ -61,7 +61,6 @@ def generate_kadist_video_list(pages=15):
 
                     url = (
                         div.select("a.teaser-content-title")[0]["href"]
-                        .replace("https://kadist.org", "http://kadist.mooresolutions.io")
                     )
 
                     video = {

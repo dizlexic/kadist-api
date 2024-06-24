@@ -104,11 +104,12 @@ def _remove_image_data_uri(d: Dict) -> Dict:
 
 def load_videos(
     manifest_folder, suppress_image_data_uri: bool = True
-) -> Sequence[Dict]:
+) -> List[List[dict]]:
 
     videos = []
 
     for fname in glob.glob(f"{manifest_folder}/*.json"):
+        print("** attempting to load:", fname)
         j = json.loads(open(fname).read())
         video = _remove_image_data_uri(j) if suppress_image_data_uri else j
         extended_video = _extend_info(video)
@@ -124,13 +125,9 @@ def load_videos(
     print(
         f" * kvl: {len(kvl)}, interviews: {len(interviews)}, external: {len(external_videos)}, kview: {len(kview_videos)}"
     )
-
-    return (kvl, interviews, external_videos, kview_videos)
-
+    return [kvl, interviews, external_videos, kview_videos]
 
 def suggested_videos(
-    video_index: List[Dict],
-    interview_videos: List[Dict],
     kvl_videos: List[Dict],
     external_videos: List[Dict],
     kview_videos: List[Dict],

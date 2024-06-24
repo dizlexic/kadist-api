@@ -35,8 +35,8 @@ bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
 
 s3helper = S3Helper(bucket_name)
 
-source_ip = os.getenv("KAPI_SOURCE_IP", "http://174.138.94.71")
-source_url = os.getenv("KAPI_SOURCE_URL", "https://kadist.mooresolutions.io")
+source_ip = os.getenv("KAPI_SOURCE_IP", "http://54.218.253.163")
+source_url = os.getenv("KAPI_SOURCE_URL", "https://kapi.kadist.org")
 
 
 def cloudflare_url(url: str) -> str:
