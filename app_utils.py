@@ -172,7 +172,7 @@ def suggested_videos(
     all_videos = interview_videos + kvl_videos + kview_videos
 
     if togo and len(all_videos) > togo:
-        for video in random.sample(videos, togo):
+        for video in random.sample(all_videos, togo):
             print(f" * suggesting (random), title: [{video['title']}]")
             videos.append(video)
 
