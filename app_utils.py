@@ -128,10 +128,12 @@ def load_videos(
     return [kvl, interviews, external_videos, kview_videos]
 
 def suggested_videos(
-    kvl_videos: List[Dict],
-    external_videos: List[Dict],
-    kview_videos: List[Dict],
-    count: int,
+        video_index: List[Dict],
+        interview_videos: List[Dict],
+        kvl_videos: List[Dict],
+        external_videos: List[Dict],
+        kview_videos: List[Dict],
+        count: int,
 ) -> List[Dict]:
 
     videos = []
