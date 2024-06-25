@@ -264,7 +264,6 @@ def fetch_kadist(args, manifest_folder: str):
 
         def generate_save_clip(self):
             print("yt dl ")
-            duration = self.manifest.duration if self.manifest.duration else None
             return generate_clip_and_write_to_s3(self.manifest, 20.0)
         def callback(self, d):
             if d["status"] == "finished":
@@ -282,7 +281,7 @@ def fetch_kadist(args, manifest_folder: str):
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "outtmpl": f"{TMP}/{generate_id(url)}.mp4",
                 "noplaylist": True,
-                "quiet": args.verbose,
+                "verbose": True,
                 "progress_hooks": [self.callback],
             }
 
