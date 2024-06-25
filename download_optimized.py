@@ -346,7 +346,8 @@ def fetch_external(args, manifest_folder):
 
         def save_video_create_manifest(self, dest_file):
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
-            generate_clip_and_write_to_s3(self.manifest, self.video_type)
+            duration = 20.0
+            generate_clip_and_write_to_s3(self.manifest, duration)
             if os.path.exists(dest_file):
                 print(f" *", f"removing {dest_file}")
                 os.remove(dest_file)
@@ -463,8 +464,6 @@ def fetch_kviews(args, manifest_folder):
                 "region": "All",
                 "mp4_length": video_duration,
             }
-
-
             write_manifest(video_type, manifest, manifest_folder)
             clip_duration = 20.0
             print("creating new clip for", video_id, manifest["mp4"], manifest["mp4_length"])
@@ -473,6 +472,7 @@ def fetch_kviews(args, manifest_folder):
                 write_manifest("kvl", clip_manifest, manifest_folder)
             else:
                 print("Failed to generate clip")
+
             vfile = f"{TMP}/{video_id}.mp4"
             if os.path.exists(vfile):
                 os.remove(vfile)
@@ -658,7 +658,7 @@ if __name__ == "__main__":
 
     rm_json_files(manifest_folder)
 
-    fetch_kvl(args, manifest_folder)# should generate clip
-    fetch_kadist(args, manifest_folder)# should generate clip
-    fetch_external(args, manifest_folder)# should generate clip
-    fetch_kviews(args, manifest_folder)# should generate clip
+    # fetch_kvl(args, manifest_folder)# should generate clip
+    # fetch_kadist(args, manifest_folder)# should generate clip
+    fetch_external(args, manifest_folder)  # should generate clip
+    fetch_kviews(args, manifest_folder)  # should generate clip
