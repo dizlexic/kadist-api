@@ -375,7 +375,6 @@ def fetch_external(args, manifest_folder):
             with YoutubeDL(ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(url, download=False)
-                    "".join(filter(str.isalpha, info_dict.get("id")))
                     video_title = info_dict.get("title", None)
                     view_count = info_dict.get("view_count", 0)
                     description = info_dict.get("description", None)
@@ -659,5 +658,5 @@ if __name__ == "__main__":
 
     # fetch_kvl(args, manifest_folder)# should generate clip
     # fetch_kadist(args, manifest_folder)# should generate clip
-    fetch_external(args, manifest_folder)  # should generate clip
+    # fetch_external(args, manifest_folder)  # should generate clip
     fetch_kviews(args, manifest_folder)  # should generate clip
