@@ -15,6 +15,9 @@ WORKDIR /api
 RUN conda env create -f environment.yml
 ENV PATH /opt/conda/envs/kadisttv/bin:$PATH
 
+RUN pip install -r requirements.txt
+RUN pip install -r dev-requirements.txt
+
 # Make port api port defined in the .env file available to the world outside this container
 EXPOSE 5000
 
