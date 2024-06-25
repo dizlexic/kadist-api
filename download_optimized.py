@@ -642,10 +642,11 @@ def genClipsMain():
 # START MAIN
 if __name__ == "__main__":
 
+    remove = False
     parser = argparse.ArgumentParser(description="video downloader")
 
     parser.add_argument(
-        "--rm", action="store", nargs="+", help="remove files from bucket"
+        "--rm", const=remove, action="store", nargs="+", help="remove files from bucket"
     )
 
     parser.add_argument(
@@ -656,7 +657,8 @@ if __name__ == "__main__":
 
     manifest_folder = "imported_videos"
 
-    rm_json_files(manifest_folder)
+    if remove:
+        rm_json_files(manifest_folder)
 
     fetch_kvl(args, manifest_folder) # should generate clip
     fetch_kadist(args, manifest_folder) # should generate clip
