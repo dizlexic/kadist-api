@@ -309,6 +309,7 @@ def fetch_kadist(args, manifest_folder: str):
                         else:
                             ydl.download([url])
 
+
                 except Exception as e:
                     print("Error Downloading")
                     print(str(e))
@@ -348,7 +349,6 @@ def fetch_external(args, manifest_folder):
             duration = 20.0
             generate_clip_and_write_to_s3(self.manifest, duration)
             if os.path.exists(dest_file):
-                print(f" *", f"removing {dest_file}")
                 os.remove(dest_file)
             write_manifest(self.video_type, self.manifest, self.manifest_folder)
 
@@ -368,7 +368,7 @@ def fetch_external(args, manifest_folder):
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "outtmpl": f"{TMP}/{generate_id(url)}.mp4",
                 "noplaylist": True,
-                "quiet": args.verbose,
+                "verbose": True,
                 "progress_hooks": [self.callback],
             }
 
