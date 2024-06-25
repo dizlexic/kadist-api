@@ -25,6 +25,8 @@ from typing import Dict
 from tqdm import tqdm
 from dotenv import load_dotenv
 
+from app_utils import clear_temporary_videos
+
 load_dotenv()
 
 config = dotenv_values(".env")
@@ -656,7 +658,9 @@ if __name__ == "__main__":
 
     rm_json_files(manifest_folder)
 
-    # fetch_kvl(args, manifest_folder)# should generate clip
-    # fetch_kadist(args, manifest_folder)# should generate clip
-    # fetch_external(args, manifest_folder)  # should generate clip
+    fetch_kvl(args, manifest_folder) # should generate clip
+    fetch_kadist(args, manifest_folder) # should generate clip
+    fetch_external(args, manifest_folder)  # should generate clip
     fetch_kviews(args, manifest_folder)  # should generate clip
+
+    clear_temporary_videos(TMP)

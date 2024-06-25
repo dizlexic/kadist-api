@@ -230,4 +230,13 @@ def _extend_info(video: Dict) -> Dict:
 
 
 
+def clear_temporary_videos(temp_path) -> None:
+    for file in os.listdir(temp_path):
+        file_path = os.path.join(temp_path, file)
 
+        if file == ".gitkeep":
+            return
+
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+            print("removed temporary file", file_path)
