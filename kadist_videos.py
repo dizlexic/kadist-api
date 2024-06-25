@@ -40,6 +40,7 @@ def generate_kadist_video_list(pages=15):
         ("Asia", "asia"),
     ]
 
+    failed_requests = 0
     for n in tqdm(list(range(1, pages + 1))):
         for (region, region_url_fragment) in tqdm(regions, leave=False):
             url = (
@@ -126,6 +127,14 @@ def generate_kadist_video_list(pages=15):
                                             )[0]["href"]
                                             videos.append(video)
 
+            else:
+                print("failed request")
+                failed_requests = failed_requests + 1
+                if failed_requests > 5:
+                    print("failed total > limit", failed_requests)
+                    break
+
+
     if videos:
         output_file = "config_files/kadist_videos.json"
         with open(output_file, "w") as f:
@@ -134,4 +143,4 @@ def generate_kadist_video_list(pages=15):
 
 
 if __name__ == "__main__":
-    generate_kadist_video_list(pages=20)
+    generate_kadist_video_list(pages=100)
