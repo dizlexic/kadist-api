@@ -1,6 +1,4 @@
-name: kapidev
-channels:
-  - defaults
+name: kadist-tv-api
 dependencies:
   - python=3.8
   - pip
