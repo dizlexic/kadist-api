@@ -17,11 +17,7 @@ class S3Helper:
         if "AWS_ACCESS_KEY_ID" in config and "AWS_SECRET_ACCESS_KEY" in config:
             AWS_ACCESS_KEY_ID = config["AWS_ACCESS_KEY_ID"]
             AWS_SECRET_ACCESS_KEY = config["AWS_SECRET_ACCESS_KEY"]
-        elif os.path.exists("keys.secret"):
-            with open("keys.secret") as key_file:
-                j = json.loads(key_file.read())
-                AWS_ACCESS_KEY_ID = j["AccessKeyID"]
-                AWS_SECRET_ACCESS_KEY = j["SecretAccessKey"]
+
         else:
             raise Exception("Missing keys.secret for S3")
 
