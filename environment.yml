@@ -1,4 +1,4 @@
-name: kadist-tv-api
+name: ktv-api
 dependencies:
   - python=3.8
   - pip
