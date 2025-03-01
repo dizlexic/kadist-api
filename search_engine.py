@@ -1,13 +1,11 @@
-from typing import Dict, List, Sequence
-
 import json
-import time
 import logging
+import time
+from typing import Sequence, Any
 
-from whoosh.fields import *
-from whoosh.qparser import MultifieldParser
-from whoosh.highlight import WholeFragmenter
 from whoosh.filedb.filestore import RamStorage
+from whoosh.highlight import WholeFragmenter
+from whoosh.qparser import MultifieldParser
 
 from app_utils import load_videos
 
@@ -29,7 +27,8 @@ class SearchEngine:
     def get_index_size(self) -> int:
         return self.ix.doc_count_all()
 
-    def query(self, q: str, search_in_fields: Sequence, highlight=True) -> List[Dict]:
+    def query(self, q: str, search_in_fields: Sequence, highlight=True) -> dict[
+        str, list[Any] | str | Sequence | float | int]:
         start = time.time()
         search_results = []
         with self.ix.searcher() as searcher:
