@@ -2,11 +2,11 @@ import json
 import re
 import time
 from html import unescape
-from tqdm import tqdm
 
 import requests
 import requests_cache
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 etl_headers = {}
 
@@ -20,7 +20,7 @@ session = requests_cache.CachedSession(
 def remove_tags(text):
 
     TAG_RE = re.compile(r"<[^>]+>")
-    ENTITY_RE = re.compile(r"\&[^;]+;")
+    ENTITY_RE = re.compile(r"&[^;]+;")
 
     return re.sub(" +", " ", ENTITY_RE.sub(" ", TAG_RE.sub("", str(text))))
 
@@ -45,7 +45,7 @@ def generate_kadist_video_list(pages=15):
         for (region, region_url_fragment) in tqdm(regions, leave=False):
             url = (
                 f"https://kadist.org/region/{region_url_fragment}/page/%d/?post_type=program"
-                % (n)
+                % n
             )
             time.time()
             r = session.get(url)
