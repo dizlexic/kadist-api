@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from s3helper import S3Helper
+from lib.s3helper import S3Helper
 
 bucket_name = "arpedia-dev"
 

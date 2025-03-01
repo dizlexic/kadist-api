@@ -4,7 +4,7 @@
 #   pre-commit autoupdate
 #
 
-exclude: ^$|config_files|imported_videos
+exclude: ^$|config|imported_videos
 fail_fast: false
 
 repos:

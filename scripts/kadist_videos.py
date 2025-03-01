@@ -11,14 +11,27 @@ from tqdm import tqdm
 etl_headers = {}
 
 session = requests_cache.CachedSession(
-    cache_name="kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after 7 days
 
 
 # This is literally scraping the html from the website, not the JSON so we aren't getting the new "links" fields (caption, etc)
 
 def remove_tags(text):
+    """
+    Removes HTML tags and entities from the given text.
 
+    This function takes a string input, strips HTML tags, replaces any
+    HTML entities with a space, and collapses multiple spaces into a
+    single space. It ensures the output string is clean and readable
+    by eliminating unwanted formatting artifacts.
+
+    Args:
+        text (str): The input text containing HTML tags and/or entities.
+
+    Returns:
+        str: A clean string with HTML tags and entities removed.
+    """
     TAG_RE = re.compile(r"<[^>]+>")
     ENTITY_RE = re.compile(r"&[^;]+;")
 
@@ -26,10 +39,43 @@ def remove_tags(text):
 
 
 def save_video(url, path):
+    """
+    Function to save a video from a given URL to a specified path.
+
+    This function takes a video URL and a file path as arguments,
+    and it handles the appropriate process of storing the video content
+    to the provided path. It assumes the implementation of downloading
+    and saving mechanisms.
+
+    Args:
+        url (str): The URL from which the video will be downloaded.
+        path (str): The file path where the video will be saved.
+
+    Returns:
+        None
+    """
     print(" *", f"--> saving ({url}) new video to {path}")
 
 
 def generate_kadist_video_list(pages=15):
+    """
+    Generate a list of videos from the Kadist website for multiple regions and pages.
+
+    This function fetches video data from the Kadist organization's website by iterating
+    through specified regions and pages of the website. It extracts useful information
+    about videos, such as permalink, title, region, image details, description, raw video
+    URL (if available), and saves the collected data into a JSON file. The function uses a
+    requests session and BeautifulSoup for making HTTP requests and parsing HTML content.
+
+    Parameters:
+        pages (int): The number of pages to iterate for each region. Default is 15.
+
+    Raises:
+        N/A
+
+    Returns:
+        None
+    """
     videos = []
 
     regions = [
@@ -136,7 +182,7 @@ def generate_kadist_video_list(pages=15):
 
 
     if videos:
-        output_file = "config_files/kadist_videos.json"
+        output_file = "config/kadist_videos.json"
         with open(output_file, "w") as f:
             f.write(json.dumps(videos, indent=2, ensure_ascii=False))
             print(f" * written {len(videos)} to {output_file}")

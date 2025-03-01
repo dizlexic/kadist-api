@@ -1,106 +1,114 @@
-# kadist-tv
-Kadist TV
+# Kadist TV
 
+A repository for ingesting and managing Kadist TV media.
 
-# Development
-```console
+---
+
+## Development Setup
+
+### 1. Create and Activate Conda Environment
+
+```bash
 $ conda create -n kadisttv python=3.8
 $ conda activate kadisttv
+```
+
+### 2. Install Requirements
+
+```bash
 $ pip install -r requirements.txt
 $ pip install -r dev-requirements.txt
-
 ```
 
-## Development Hygiene
+### 3. Configure Environment Variables
 
-### precommit installation
-```console
-$ pre-commit install
-$ pre-commit autoupdate
-# black .
+Copy the `.env.example` file to `.env` and fill in the required values:
+
+```plaintext
+AWS_ACCESS_KEY_ID="<your-aws-access-key-id>"
+AWS_SECRET_ACCESS_KEY="<your-aws-secret-access-key>"
 ```
 
-### remove unsed imports:
+---
 
-```console
-$ autoflake --in-place --remove-all-unused-imports *.py
-```
+## Admin Dashboard
 
-### Lint code
+Access the admin UI at the following URL path:
 
-```console
-$ flake8
-```
+`/admin`
 
-# Set Keys for S3 to Heroku
+---
 
-```console
-$ heroku config:set AWS_ACCESS_KEY_ID="AKIAI2ML5PDUHCAMWLDA"
-$ heroku config:set AWS_SECRET_ACCESS_KEY="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"
-```
+## Clip Overrides
 
-# Set Heroku remote:
+Specify clip overrides using the `config_files/clip_overrides.json` file. The format should be as follows:
 
-```console
-
-heroku git:remote -a pacific-citadel-40116
-```
-
-## App URL
-
-  https://pacific-citadel-40116.herokuapp.com/
-
-## Admin URL:
-
-  https://pacific-citadel-40116.herokuapp.com/admin
-
-
-### Clip overrides
-
-Use the `config_files/config_files/clip_overrides.json` dict, key is video_id, value should be a dict with `clip_offset` and/or `clip_length`, for example:
-
-```python
+```json
 {
-  "0a7db4d3eb3e9ea536603d51a4a4b255": {
+  "video_id": {
     "clip_offset": 12,
     "clip_length": 42
   }
 }
 ```
 
+`clip_offset` and `clip_length` are optional fields. Adjust these values as needed.
 
-# Import pipeline
+---
 
-### First generate external video list
+## Import Pipeline
 
-```console
-$ python external_videos.py
+### Ingest
+
+Run the ingestion script manually or set it as a cron job:
+
+```bash
+$ ./bin/ingest.sh
 ```
 
-### Next generate Kadist video list
+### Run the Server
 
-```console
-$ python kadist_videos.py
+Start the server locally:
+
+```bash
+$ ./bin/server.sh
 ```
 
-### Fetch all videos
+---
 
-```console
-$ python download_videos.py
-```
+## TODO (Feature Backlog)
 
-### generate the video clips on S3
+- [ ] Add a `scrape_vimeo.py` script to scrape Vimeo videos.
+- [ ] Extract video poster links for KViews.
+- [ ] Scrape metadata from:
+  - Vimeo: [https://vimeo.com/kadist](https://vimeo.com/kadist)
+  - YouTube: [https://www.youtube.com/user/KADIVIEW/videos](https://www.youtube.com/user/KADIVIEW/videos)
+- [ ] Generate `config_files/vimeo_videos.json` with the following format:
+  ```json
+  [
+    {
+      "permalink": "http://example.com/abraham-cruzvillegas/",
+      "title": "Abraham Cruzvillegas",
+      "region": "All",
+      "description": "Description of the video...",
+      "image_url": "https://example.com/image.png",
+      "image_width": 350,
+      "image_height": 218,
+      "video_url": "http://example.com/video.mp4"
+    }
+  ]
+  ```
+- [ ] Use the existing pipeline to fetch, clip, and transcode videos.
 
-```console
-$ python generate_clips.py
-```
+---
 
-# Deployment
-heroku login
-./deploy.sh
+## Notes
 
-# Endpoints:
+Refer to `kview_videos.py` for the scraping logic. To scrape Vimeo videos:
 
-## API
+- Create a new script: `vimeo_videos.py`.
+- Mimic the structure of the `scrape_videos()` function.
+- Ensure the output JSON is placed in `config_files/vimeo_videos.json`.
+- The pipeline to fetch and transcode uses [yt_dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org/).
 
-https://pacific-citadel-40116.herokuapp.com/
+Keep the existing fetching and transcoding mechanisms unchanged to ensure system compatibility.

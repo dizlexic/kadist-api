@@ -7,7 +7,7 @@ from whoosh.filedb.filestore import RamStorage
 from whoosh.highlight import WholeFragmenter
 from whoosh.qparser import MultifieldParser
 
-from app_utils import load_videos
+from lib.app_utils import load_videos
 
 
 class SearchEngine:
@@ -56,7 +56,6 @@ class SearchEngine:
 
 
 if __name__ == "__main__":
-
     #
     # just here for debugging search problems
     #
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     from whoosh.analysis import NgramWordAnalyzer, SimpleAnalyzer
 
     kvl_videos, interview_videos, external_videos, kview_videos = load_videos(
-        manifest_folder="imported_videos"
+        manifest_folder="storage/imported_videos"
     )
 
     all_videos = interview_videos + kvl_videos + external_videos + kview_videos
