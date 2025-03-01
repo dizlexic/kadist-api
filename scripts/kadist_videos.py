@@ -58,24 +58,6 @@ def save_video(url, path):
 
 
 def generate_kadist_video_list(pages=15):
-    """
-    Generate a list of videos from the Kadist website for multiple regions and pages.
-
-    This function fetches video data from the Kadist organization's website by iterating
-    through specified regions and pages of the website. It extracts useful information
-    about videos, such as permalink, title, region, image details, description, raw video
-    URL (if available), and saves the collected data into a JSON file. The function uses a
-    requests session and BeautifulSoup for making HTTP requests and parsing HTML content.
-
-    Parameters:
-        pages (int): The number of pages to iterate for each region. Default is 15.
-
-    Raises:
-        N/A
-
-    Returns:
-        None
-    """
     videos = []
 
     regions = [
@@ -87,11 +69,13 @@ def generate_kadist_video_list(pages=15):
     ]
 
     failed_requests = 0
-    for n in tqdm(list(range(1, pages + 1))):
+    current_page = 1  # Initialize the page counter
+
+    while True:  # Simulating a "do while" loop
         for (region, region_url_fragment) in tqdm(regions, leave=False):
             url = (
-                f"https://kadist.org/region/{region_url_fragment}/page/%d/?post_type=program"
-                % n
+                    f"https://kadist.org/region/{region_url_fragment}/page/%d/?post_type=program"
+                    % current_page
             )
             time.time()
             r = session.get(url)
@@ -106,9 +90,7 @@ def generate_kadist_video_list(pages=15):
 
                 for div in soup.findAll("div", {"class": "teaser-videos"}):
 
-                    url = (
-                        div.select("a.teaser-content-title")[0]["href"]
-                    )
+                    url = div.select("a.teaser-content-title")[0]["href"]
 
                     video = {
                         "permalink": url,
@@ -151,9 +133,9 @@ def generate_kadist_video_list(pages=15):
 
                             if soup.select("iframe"):
                                 video_url = (
-                                    "https:"
-                                    + unescape(soup.select("iframe")[0]["src"].strip())
-                                    + "&transparent=0&autoplay=1&loop=1&autopause=0"
+                                        "https:"
+                                        + unescape(soup.select("iframe")[0]["src"].strip())
+                                        + "&transparent=0&autoplay=1&loop=1&autopause=0"
                                 )
 
                                 # resolve redirect link
@@ -165,9 +147,7 @@ def generate_kadist_video_list(pages=15):
                                     video_soup = BeautifulSoup(html, "html.parser")
                                     if video_soup.select("head link"):
 
-                                        if video_soup.select("link")[0].has_attr(
-                                            "href"
-                                        ):
+                                        if video_soup.select("link")[0].has_attr("href"):
                                             video["raw_video_url"] = video_soup.select(
                                                 "link"
                                             )[0]["href"]
@@ -180,13 +160,15 @@ def generate_kadist_video_list(pages=15):
                     print("failed total > limit", failed_requests)
                     break
 
+        # Increment the page counter
+        current_page += 1
+
+        # Exit condition for the simulated "do while" loop
+        if current_page > pages:
+            break
 
     if videos:
         output_file = "config/kadist_videos.json"
         with open(output_file, "w") as f:
             f.write(json.dumps(videos, indent=2, ensure_ascii=False))
             print(f" * written {len(videos)} to {output_file}")
-
-
-if __name__ == "__main__":
-    generate_kadist_video_list(pages=100)
