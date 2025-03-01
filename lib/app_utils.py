@@ -1,18 +1,14 @@
-import os
-from typing import Dict, List, Sequence
-
+import datetime
 import glob
 import json
-import re
+import os
 import random
+import re
 import time
-import datetime
-
-
 from collections import Counter, defaultdict
+from typing import Dict, List, Sequence
 
-
-from s3helper import S3Helper
+from lib.s3helper import S3Helper
 
 s3 = S3Helper("arpedia-dev")
 
@@ -46,6 +42,7 @@ def remove_pin_video(video_id: str):
 
 stats_file = "stats.json"
 
+
 #
 # stats are stored on S3 as a list of dicts, each dict contains
 # the date the video was watched, the video record
@@ -54,7 +51,6 @@ stats_file = "stats.json"
 
 
 def increment_popularity(video_id: str) -> Dict:
-
     stats = s3.read_json(stats_file) or []
 
     stats.append({"video_id": video_id, "epoch_s": time.time()})
@@ -93,8 +89,8 @@ def filter_tags(videos: Sequence[Dict], min_tf: int = 1):
                 tag
                 for tag in video["tags"]
                 if c[tag.lower()] > min_tf
-                and tag.lower() not in stop_tags
-                and pattern.fullmatch(tag.lower())
+                   and tag.lower() not in stop_tags
+                   and pattern.fullmatch(tag.lower())
             }
         )
 
@@ -104,9 +100,8 @@ def _remove_image_data_uri(d: Dict) -> Dict:
 
 
 def load_videos(
-    manifest_folder, suppress_image_data_uri: bool = True
+        manifest_folder, suppress_image_data_uri: bool = True
 ) -> List[List[dict]]:
-
     videos = []
 
     for fname in glob.glob(f"{manifest_folder}/*.json"):
@@ -128,6 +123,7 @@ def load_videos(
     )
     return [kvl, interviews, external_videos, kview_videos]
 
+
 def suggested_videos(
         video_index: List[Dict],
         interview_videos: List[Dict],
@@ -136,7 +132,6 @@ def suggested_videos(
         kview_videos: List[Dict],
         count: int,
 ) -> List[Dict]:
-
     videos = []
 
     #
@@ -160,7 +155,7 @@ def suggested_videos(
         popularity = get_popularity()
 
         for (video_id, pop) in sorted(
-            popularity.items(), key=lambda item: item[1], reverse=True
+                popularity.items(), key=lambda item: item[1], reverse=True
         )[:togo]:
             if video_id in video_index:
                 video = video_index[video_id]
@@ -181,7 +176,6 @@ def suggested_videos(
 
 
 def _extend_info(video: Dict) -> Dict:
-
     parts = re.split(r"\s+-\s+", video["title"])
     if len(parts) == 1:
         if "with " in video["title"]:
@@ -227,7 +221,6 @@ def _extend_info(video: Dict) -> Dict:
     extended_video.update({"extracted_duration": extracted_duration})
 
     return extended_video
-
 
 
 def clear_temporary_videos(temp_path) -> None:

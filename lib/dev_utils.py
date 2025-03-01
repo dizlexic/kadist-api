@@ -1,28 +1,22 @@
 # -*- coding: utf-8 -*-
+import argparse
+import base64
+from io import BytesIO
+from tempfile import NamedTemporaryFile
 from typing import List, Sequence
 
+import PIL
 import requests
 import requests_cache
-
-import PIL
-
-from PIL import Image, ImageFile
-
-from io import BytesIO
-import base64
-
-
-from tempfile import NamedTemporaryFile
-
 import urllib3
-import argparse
+from PIL import Image, ImageFile
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 urllib3.disable_warnings()
 
 requests_cache.CachedSession(
-    cache_name="poster_cache", backend="sqlite", expire_after=60 * 96
+    cache_name="caches/poster_cache", backend="sqlite", expire_after=60 * 96
 )  # minutes
 
 
@@ -52,7 +46,7 @@ def download_video_file(url):
     with requests.get(url, stream=True, headers={"referer": "http://kadist.org/"}) as r:
         r.raise_for_status()
         with NamedTemporaryFile(
-            prefix="video_", suffix=f".{url.split('.')[-1]}", delete=False
+                prefix="video_", suffix=f".{url.split('.')[-1]}", delete=False
         ) as f:
             for chunk in r.iter_content(chunk_size=65536):
                 f.write(chunk)
@@ -73,5 +67,3 @@ def image_url_to_data_uri(imgurl: str):
         buffer.seek(0)
         data64 = "".join(base64.b64encode(buffer.read()).decode("utf-8").splitlines())
         return f"data:image/png;base64,{data64}"
-
-

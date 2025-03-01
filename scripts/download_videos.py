@@ -1,44 +1,41 @@
 #!/usr/bin/env python
 
 import argparse
-import glob
 import hashlib
 import json
 import os
 from datetime import datetime
-from typing import Dict
-from typing import List
+from typing import Dict, List
 
 import requests
 import requests_cache
 import yake
-from dotenv import dotenv_values
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 from tqdm import tqdm
 from yt_dlp import YoutubeDL
 
-from app_utils import clear_temporary_videos
-from dev_utils import image_url_to_data_uri
 from external_videos import get_external_videos
 from kview_videos import get_kview_videos
-from s3helper import S3Helper
+from lib.dev_utils import image_url_to_data_uri
+from lib.s3helper import S3Helper
 
 load_dotenv()
+config = dotenv_values("../.env")
 
-config = dotenv_values(".env")
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/tmp')
-bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
-source_ip = os.getenv("KAPI_SOURCE_IP")
-source_url = os.getenv("KAPI_SOURCE_URL")
-
 
 requests_cache.CachedSession(
-    cache_name="kvl_cache", backend="sqlite", expire_after=60 * 96
+    cache_name="caches/kvl_cache", backend="sqlite", expire_after=60 * 96
 )  # minutes
+
+bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
 
 s3helper = S3Helper(bucket_name)
 
-# START DOWNLOAD FUNCTIONS
+source_ip = os.getenv("KAPI_SOURCE_IP", "http://54.218.253.163")
+source_url = os.getenv("KAPI_SOURCE_URL", "https://kapi.kadist.org")
+
+
 def cloudflare_url(url: str) -> str:
     # replace "http://54.218.253.163" with "https://kadist.org"
     url = url.replace('https://kadist.org', source_url)
@@ -93,19 +90,19 @@ def generate_abbreviated_description(description: str) -> str:
     return description.split(".")[0]
 
 
+def generate_clip(url: str, clip_length: int = 10):
+    pass
+
+
 def download_video_file_to_mp4(url: str):
     dest_file = f"{TMP}/{generate_id(url)}.mp4"
     if os.path.exists(dest_file):
-        print("local file exits serving it back!")
         return dest_file
     else:
-        print("no local file attempting to download")
-        cmd = f"ffmpeg -y -nostats -loglevel error -headers 'Referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
-        call = os.system(cmd)
-        if call == 0:
+        cmd = f"ffmpeg -y -nostats -loglevel 0 -headers $'referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
+        if os.system(cmd) == 0:
             return dest_file
         else:
-            print("could not download file", cmd)
             return False
 
 
@@ -122,7 +119,7 @@ def write_manifest(video_type: str, manifest: Dict, manifest_folder: str):
     # if not manifest['image_url']:
     manifest["image_data_uri"] = image_url_to_data_uri(manifest["image_url"])
 
-    print(" *", f"write_manifest [type: {video_type}], ID: {manifest['id']}")
+    # print(" *", f"write_manifest [type: {video_type}], ID: {manifest['id']}")
 
     manifest["type"] = video_type.lower()
     with open(f"{manifest_folder}/{manifest['id']}.json", "w", encoding="utf-8") as f:
@@ -130,12 +127,12 @@ def write_manifest(video_type: str, manifest: Dict, manifest_folder: str):
 
 
 def save_video_as_mp4(url: str, cleanup: bool = True):
+
     video_id = generate_id(url)
     video_duration = None
     video_object = f"{video_id}.mp4"
 
     if not s3helper.file_exists(video_object):
-        print("No file exist in the bucket")
         local_tmp_file = download_video_file_to_mp4(url)
         if local_tmp_file:
             print(f"save_video_as_mp4::writing: {local_tmp_file} for {url} to bucket with name {video_object}")
@@ -144,27 +141,24 @@ def save_video_as_mp4(url: str, cleanup: bool = True):
             # remove local tmp file
             cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
             video_duration = os.popen(cmd).read().strip()
-            print("video duration", video_duration)
             if cleanup:
                 print(f"save_video_as_mp4::cleaning up: {local_tmp_file}")
                 # remove local tmp file
                 os.remove(local_tmp_file)
+
             print(f"save_video_as_mp4::video_duration: {video_duration}")
         else:
             print(" *", f"skipping [{url}] not mp4")
         return video_id, video_duration
     else:
-        print("file already exists on bucket ", video_id)
         local_tmp_file = download_video_file_to_mp4(url)
         if local_tmp_file:
             cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {local_tmp_file}"
             video_duration = os.popen(cmd).read().strip()
             print(f"save_video_as_mp4::video_duration: Video exists remote")
-            if cleanup:
-                os.remove(local_tmp_file)
+            os.remove(local_tmp_file)
             return video_id, video_duration
-
-        print("unable to download", video_id)
+        print("No Local TMP file for ", url)
         return video_id, False
 
 
@@ -190,21 +184,17 @@ def fetch_kvl(args, manifest_folder: str):
         for x in tqdm(r.json()["results"]):
             url = x["external_key"]
             url = url.replace('https://kadist.org', source_ip)
-            url = cloudflare_url(url)
+            url = url.replace(source_url, source_ip)
             print(f"fetch_kvl::fetching: {url}")
-            req = requests.get(url)
+            r = requests.get(url)
             work_details = {}
-            if req.status_code == requests.codes.ok:
-                work_details = req.json()
+            if r.status_code == requests.codes.ok:
+                work_details = r.json()
             # grab the video from kadist and put it on arpedia's bucket
-            video_id, video_duration = save_video_as_mp4(x["video_url"], False)
+            video_id, video_duration = save_video_as_mp4(x["video_url"])
             if video_id:
-                if "region" in x and type(x["region"]) == list:
-                    x["region"] = x["region"][0] # one off issue
-
-                if not "region" in x:
-                    x["region"] = "unknown"
-
+                if type(x["region"]) == list:
+                    x["region"] = x["region"][0]
                 video = {
                     "id": video_id,
                     "title": "{} - {}".format(x["artist_name"], x["title"]),
@@ -223,19 +213,8 @@ def fetch_kvl(args, manifest_folder: str):
                     "mp4_length": video_duration,
                 }
                 write_manifest("kvl", video, manifest_folder)
-                clip_duration = 20.0
-                print("creating new clip for", video_id)
-                clip_manifest = generate_clip_and_write_to_s3(video, clip_duration)
-                if clip_manifest:
-                    write_manifest("kvl", clip_manifest, manifest_folder)
-                else:
-                    print("Failed to generate clip")
-
-                vfile = f"{TMP}/{video_id}.mp4"
-                if os.path.exists(vfile):
-                    os.remove(vfile)
             else:
-                print("No video id for url", url, video_id, video_duration)
+                print("No video id :(", video_id, video_duration)
 
 
 def fetch_kadist(args, manifest_folder: str):
@@ -247,22 +226,13 @@ def fetch_kadist(args, manifest_folder: str):
             self.manifest_folder = manifest_folder
             self.video_type = "interview"
 
-        # START VIDEO REMOVAL
         def save_video_create_manifest(self, dest_file):
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
-            clipManifest = self.generate_save_clip()
             if os.path.exists(dest_file):
                 print(f" *", f"removing {dest_file}")
                 os.remove(dest_file)
             write_manifest(self.video_type, self.manifest, self.manifest_folder)
-            if clipManifest:
-                write_manifest("clip", self.manifest, self.manifest_folder)
-            else:
-                print(" *", "No clip manifest found", dest_file)
 
-        def generate_save_clip(self):
-            print("yt dl ")
-            return generate_clip_and_write_to_s3(self.manifest, 20.0)
         def callback(self, d):
             if d["status"] == "finished":
                 self.save_video_create_manifest(d["filename"])
@@ -279,7 +249,7 @@ def fetch_kadist(args, manifest_folder: str):
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "outtmpl": f"{TMP}/{generate_id(url)}.mp4",
                 "noplaylist": True,
-                "verbose": True,
+                "quiet": args.verbose,
                 "progress_hooks": [self.callback],
             }
 
@@ -307,12 +277,11 @@ def fetch_kadist(args, manifest_folder: str):
                         else:
                             ydl.download([url])
 
-
                 except Exception as e:
                     print("Error Downloading")
                     print(str(e))
 
-    with open("config_files/kadist_videos.json") as f:
+    with open("config/kadist_videos.json") as f:
         videos = json.loads(f.read())
 
         for x in tqdm(videos):
@@ -344,9 +313,8 @@ def fetch_external(args, manifest_folder):
 
         def save_video_create_manifest(self, dest_file):
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
-            duration = 20.0
-            generate_clip_and_write_to_s3(self.manifest, duration)
             if os.path.exists(dest_file):
+                print(f" *", f"removing {dest_file}")
                 os.remove(dest_file)
             write_manifest(self.video_type, self.manifest, self.manifest_folder)
 
@@ -366,13 +334,14 @@ def fetch_external(args, manifest_folder):
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
                 "outtmpl": f"{TMP}/{generate_id(url)}.mp4",
                 "noplaylist": True,
-                "verbose": True,
+                "quiet": args.verbose,
                 "progress_hooks": [self.callback],
             }
 
             with YoutubeDL(ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(url, download=False)
+                    "".join(filter(str.isalpha, info_dict.get("id")))
                     video_title = info_dict.get("title", None)
                     view_count = info_dict.get("view_count", 0)
                     description = info_dict.get("description", None)
@@ -442,7 +411,7 @@ def fetch_kviews(args, manifest_folder):
 
     for kview in tqdm(kview_videos):
 
-        video_id, video_duration = save_video_as_mp4(kview["video_url"], False)
+        video_id, video_duration = save_video_as_mp4(kview["video_url"])
 
         if video_id:
             manifest = {
@@ -460,189 +429,18 @@ def fetch_kviews(args, manifest_folder):
                 "region": "All",
                 "mp4_length": video_duration,
             }
+
             write_manifest(video_type, manifest, manifest_folder)
-            clip_duration = 20.0
-            print("creating new clip for", video_id, manifest["mp4"], manifest["mp4_length"])
-            clip_manifest = generate_clip_and_write_to_s3(manifest, clip_duration)
-            if clip_manifest:
-                write_manifest("kvl", clip_manifest, manifest_folder)
-            else:
-                print("Failed to generate clip")
-
-            vfile = f"{TMP}/{video_id}.mp4"
-            if os.path.exists(vfile):
-                os.remove(vfile)
-
         else:
             print(" *", f"fetch_kviews, skipping {kview['video_url']} - NOT FOUND")
 
-# END DOWNLOAD FUNCTIONS
 
-# START GENERATE CLIPS FUNCTIONS
-def _clipify(
-        video_id: str, mp4: str, offset: float, duration: float, forcedownload: bool = False
-) -> str:
-    dest_file = f"{TMP}/{video_id}_clip.mp4"
-    source_file = f"{TMP}/{video_id}.mp4"
-    if not os.path.exists(source_file):
-        print('source file doesnt exist :(')
-
-    if not forcedownload and os.path.exists(dest_file):
-        return dest_file
-    else:
-        cmd = f"ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy {dest_file}"
-        print(" *", cmd)
-        if os.system(cmd) == 0:
-            return dest_file
-        else:
-            return False
-
-
-def _get_video_length(video_id: str, mp4: str) -> float:
-    local_file = f"{TMP}/{video_id}_clip.mp4"
-
-    src = local_file if os.path.exists(local_file) else mp4
-
-    cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {src}"
-
-    result = os.popen(cmd).read().strip()
-
-    return float(result) if result else None
-
-
-def generate_clip_and_write_to_s3(
-        video: Dict, duration: float, forcedownload: bool = False, offset="auto"
-):
-    video_id = video["id"]
-
-    video_object = f"{video_id}.mp4"
-    clip_object = f"{video_id}_clip_{int(duration)}s.mp4"
-
-    print('generating clip from', video_object, 'and naming it', clip_object)
-    video_exists = s3helper.file_exists(video_object)
-    clip_exists = s3helper.file_exists(clip_object)
-    local_file = f"{TMP}/{video_id}.mp4"
-    local_exists = os.path.exists(local_file)
-
-    mp4 = local_file if local_exists else video["mp4"]
-
-    if video_exists or local_exists:
-        print('video clip exists', video_id)
-        forcedownload = forcedownload or offset != "auto"
-
-        if "mp4_length" not in video:
-            print('no mp4_length')
-            video_length = _get_video_length(video_id, mp4)
-            if video_length:
-                print('video length', video_length)
-                video["mp4_length"] = video.get("mp4_length", video_length)
-            else:
-                print(" *", f"ERROR: could not get video length for {video_id}")
-                return False
-
-        length = video["mp4_length"] if video["mp4_length"] else 0
-        if float(length) < 1:
-            print(" *", f"ERROR: video length is less than 1 second for {video_id}")
-            return False
-        # process offset
-
-        actual_offset = 0
-
-        if offset == "auto":
-            actual_offset = max(
-                0, float(video["mp4_length"]) / 2.0 - float(duration) / 2.0
-            )
-        else:
-            if 0 <= float(offset) <= (float(video["mp4_length"]) - float(duration)):
-                actual_offset = offset
-
-        if not forcedownload and clip_exists:
-            video["mp4_clip"] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
-        else:
-            print("making clip")
-            local_clip_file = _clipify(video_id, mp4, actual_offset, duration, forcedownload)
-
-            if local_clip_file:
-                s3helper.put_file(clip_object, local_clip_file)
-                print(" *", f"uploaded {clip_object}")
-                print(" *", f"removing {local_clip_file}")
-                os.remove(local_clip_file)
-                video[
-                    "mp4_clip"
-                ] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
-
-        return video
-    print("clip gen failed with no video exists?")
-    return False
-
-
-def lookup_video_overrides(video):
-    """potentially update the dict with any clip overrides (CLIP_OFFSET/CLIP_LENGTH)" \""""
-
-    video_id = video["id"]
-    OVERRIDES_CONFIG = "config_files/clip_overrides.json"
-    if os.path.exists(OVERRIDES_CONFIG):
-        with open(OVERRIDES_CONFIG, encoding="utf-8") as f:
-            overrides = json.loads(f.read())
-            if video_id in overrides:
-                video.update(overrides[video_id])
-
-    return video
-
-
-# START CLIPS MAIN
-def genClipsMain():
-    CLIP_OFFSET = "clip_offset"
-    CLIP_LENGTH = "clip_length"
-
-    s3helper = S3Helper(bucket_name)
-
-    manifest_folder = "imported_videos"
-
-    print(" *", f"globbing {manifest_folder}...")
-    manifest_files = glob.glob(f"{manifest_folder}/*.json")
-
-    print(" *", f"found {len(manifest_files)} videos...")
-
-    for fname in tqdm(manifest_files):
-        video = None
-
-        with open(fname, encoding="utf-8") as f:
-            video = json.loads(f.read())
-
-        if not video:
-            print(" *", f"ERROR {fname}")
-
-        else:
-            # look up in the config_files/offsets.json if there's an
-            # override for this video
-
-            video = lookup_video_overrides(video)
-
-            OFFSET = video[CLIP_OFFSET] if CLIP_OFFSET in video else "auto"
-            DURATION = video[CLIP_LENGTH] if CLIP_LENGTH in video else 20.0
-
-            new_manifest = generate_clip_and_write_to_s3(
-                video, duration=DURATION, offset=OFFSET
-            )
-
-            if new_manifest:
-                with open(fname, "w") as f:
-                    f.write(json.dumps(new_manifest, indent=2, ensure_ascii=False))
-            else:
-                # video must not exist so delete json
-                print(" *", f"remove {fname}, [{video['title']}]")
-                os.remove(fname)
-
-
-# START MAIN
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="video downloader")
 
-    # Fix: Use `store_true` for a flag-like behavior
     parser.add_argument(
-        "--rm", action="store_true", help="remove files from bucket"
+        "--rm", action="store", nargs="+", help="remove files from bucket"
     )
 
     parser.add_argument(
@@ -651,15 +449,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    manifest_folder = "imported_videos"
+    manifest_folder = "storage/imported_videos"
 
-    # Use args.rm instead of `remove`
-    if args.rm:
-        rm_json_files(manifest_folder)
+    rm_json_files(manifest_folder)
 
-    fetch_kvl(args, manifest_folder)  # should generate clip
-    fetch_kadist(args, manifest_folder)  # should generate clip
-    fetch_external(args, manifest_folder)  # should generate clip
-    fetch_kviews(args, manifest_folder)  # should generate clip
-
-    clear_temporary_videos(TMP)
+    fetch_kvl(args, manifest_folder)
+    fetch_kadist(args, manifest_folder)
+    fetch_external(args, manifest_folder)
+    fetch_kviews(args, manifest_folder)

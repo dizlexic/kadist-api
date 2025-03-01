@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 
-from s3helper import S3Helper
-from typing import Dict
-
+import glob
 import json
 import os
-import glob
-
-from tqdm import tqdm
+from typing import Dict
 
 from dotenv import load_dotenv
+from tqdm import tqdm
+
+from lib.s3helper import S3Helper
 
 load_dotenv()
 
@@ -110,7 +109,7 @@ def lookup_video_overrides(video):
     """potentially update the dict with any clip overrides (CLIP_OFFSET/CLIP_LENGTH)" \""""
 
     video_id = video["id"]
-    OVERRIDES_CONFIG = "config_files/clip_overrides.json"
+    OVERRIDES_CONFIG = "config/clip_overrides.json"
     if os.path.exists(OVERRIDES_CONFIG):
         with open(OVERRIDES_CONFIG, encoding="utf-8") as f:
             overrides = json.loads(f.read())
@@ -144,7 +143,7 @@ if __name__ == "__main__":
             print(" *", f"ERROR {fname}")
 
         else:
-            # look up in the config_files/offsets.json if there's an
+            # look up in the config/offsets.json if there's an
             # override for this video
 
             video = lookup_video_overrides(video)

@@ -1,21 +1,17 @@
-from typing import Dict, List, Sequence
-
-import json, yaml, re, sys, hashlib
-
-
-from html import unescape
-from tqdm import tqdm
+import hashlib
+import json
+import re
 
 import requests
 import requests_cache
+import yaml
 from bs4 import BeautifulSoup
-
 from tqdm import tqdm
 
 etl_headers = {}
 
 session = requests_cache.CachedSession(
-    cache_name="kview_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="caches/kview_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after 7 days
 
 
@@ -28,12 +24,12 @@ def remove_tags(text):
 
 
 def get_kview_videos():
-    with open("config_files/kview_videos.json") as f:
+    with open("config/kview_videos.json") as f:
         return json.loads(f.read())
 
 
 def source_container_pages():
-    with open("config_files/kview_scrape_pages.yaml") as f:
+    with open("../storage/config/kview_scrape_pages.yaml") as f:
         return [x for x in yaml.safe_load(f.read()) if x]
 
 
@@ -55,15 +51,10 @@ def scrape_videos(source_pages):
 
             artist = soup.select("h1", {"class": "article-title"})[0].text.strip()
 
-            video = {
-                "permalink": url,
-                "title": f"60 Seconds with {artist}",
-                "region": region,
-            }
-
-            video["description"] = remove_tags(
-                str(soup.select("p", class_="ap-text-clip")[0]).strip()
-            )
+            video = {"permalink": url, "title": f"60 Seconds with {artist}", "region": region,
+                     "description": remove_tags(
+                         str(soup.select("p", class_="ap-text-clip")[0]).strip()
+                     )}
 
             try:
                 html5_video_tag = soup.findAll("source", type="video/mp4")[0]
@@ -91,7 +82,7 @@ def scrape_videos(source_pages):
             videos.append(video)
 
     if videos:
-        with open("config_files/kview_videos.json", "w") as f:
+        with open("config/kview_videos.json", "w") as f:
             f.write(json.dumps(videos, indent=2, ensure_ascii=False))
             return videos
 

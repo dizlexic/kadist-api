@@ -1,5 +1,6 @@
 import sys
-from s3helper import S3Helper
+
+from lib.s3helper import S3Helper
 
 if __name__ == "__main__":
 

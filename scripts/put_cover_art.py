@@ -1,6 +1,7 @@
-from s3helper import S3Helper
 import glob
 import os
+
+from lib.s3helper import S3Helper
 
 bucket_name = "arpedia-dev"
 
