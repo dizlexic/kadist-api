@@ -5,7 +5,6 @@ import time
 import requests
 import requests_cache
 from tqdm import tqdm
-from youtubesearchpython import VideosSearch
 
 requests_cache.CachedSession(
     cache_name="videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
