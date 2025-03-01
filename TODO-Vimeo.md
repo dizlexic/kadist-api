@@ -1,6 +1,0 @@
-
-
-# Task: Vimeo scrape
-
-
-
