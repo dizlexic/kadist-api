@@ -1,17 +1,13 @@
-import os
-
-from flask import Flask, request, render_template, Request, Response
-
-from flask_restx import Api, Resource, reqparse, inputs
-
-from flask_cors import CORS
-
-import logging
 import json
+import logging
+import os
 import time
 
-from whoosh.fields import *
+from flask import Flask, request, render_template, Response
+from flask_cors import CORS
+from flask_restx import Api, Resource, reqparse, inputs
 from whoosh.analysis import NgramWordAnalyzer, SimpleAnalyzer
+from whoosh.fields import *
 
 from app_utils import (
     load_videos,
@@ -22,7 +18,6 @@ from app_utils import (
     remove_pin_video,
     add_pin_video,
 )
-
 from search_engine import SearchEngine
 
 app = Flask(__name__)
@@ -40,13 +35,16 @@ boot_time = time.time()
 
 logging.basicConfig(level=logging.DEBUG)
 
-kvl_videos, interview_videos, external_videos, kview_videos = load_videos(
-    manifest_folder="imported_videos"
-)
+try:
+    kvl_videos, interview_videos, external_videos, kview_videos = load_videos(
+        manifest_folder="imported_videos"
+    )
+except Exception as e:
+    logging.error(f"Error loading videos: {e}")
+    kvl_videos, interview_videos, external_videos, kview_videos = [], [], [], []
 
 all_videos = interview_videos + kvl_videos + external_videos + kview_videos
 index = {v["id"]: v for v in all_videos}
-
 
 engine = SearchEngine(
     Schema(
@@ -59,7 +57,9 @@ engine = SearchEngine(
 
 print(" *", f"indexing {len(all_videos)} videos...")
 
-engine.index_documents(all_videos)
+valid_videos = [v for v in all_videos if "id" in v and "title" in v]
+engine.index_documents(valid_videos)
+logging.debug(f"Indexed {len(valid_videos)} videos")
 
 print(" *", f"indexed {engine.get_index_size()} documents")
 
@@ -71,7 +71,6 @@ print(" *", f"indexed {engine.get_index_size()} documents")
 
 @app.route("/ui")
 def ui():
-
     q = request.args.get("q")
 
     if q:
@@ -120,7 +119,6 @@ def admin():
 @name_space.route("/uptime")
 class KadistTVUptimeAPI(Resource):
     def get(self):
-
         return {
             "version": _version_,
             "uptime_s": time.time() - boot_time,
@@ -135,7 +133,7 @@ class KadistTVSuggestedVideosAPI(Resource):
         parser.add_argument("count", type=int, default=16, location='args')
         args = parser.parse_args()
 
-        return {
+        data = {
             "count": args.count,
             "videos": suggested_videos(
                 index,
@@ -146,6 +144,12 @@ class KadistTVSuggestedVideosAPI(Resource):
                 args.count,
             ),
         }
+
+        return Response(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            status=200,
+            mimetype="application/json",
+        )
 
 
 @name_space.route("/all_videos")
@@ -176,13 +180,22 @@ class KadistTVAllVideosAPI(Resource):
         if args.kview_videos:
             d["kview_videos"] = kview_videos
 
-        return {"videos": d, "total_available_videos": len(all_videos)}
+        data = {"videos": d, "total_available_videos": len(all_videos)}
+        return Response(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            status=200,
+            mimetype="application/json",
+        )
 
 
 @name_space.route("/pin")
 class KadistTVPingAPI(Resource):
     def get(self):
-        return get_pinned_videos()
+        return Response(
+            json.dumps(get_pinned_videos(), indent=2, ensure_ascii=False),
+            status=200,
+            mimetype="application/json",
+        )
 
 
 @name_space.route("/pin/<video_id>")
@@ -231,7 +244,7 @@ class KadistTVSearchAPI(Resource):
             args.q, ["title", "description", "tags"], highlight=args.highlight_results
         )
 
-        return {
+        data = {
             "count": results["size"],
             "q": results["q"],
             "searching_in": results["search_in_fields"],
@@ -239,9 +252,20 @@ class KadistTVSearchAPI(Resource):
             "results": results["hits"],
         }
 
+        return Response(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            status=200,
+            mimetype="application/json",
+        )
+
 
 if __name__ == "__main__":
     logging.info(" * server starting")
     env = os.environ.get('KTV_ENV') or 'development'
-    port = int(os.environ.get('TV_API_PORT') or 5000)
+
+    try:
+        port = int(os.environ.get('TV_API_PORT', 1337))
+    except ValueError:
+        port = 1337
+
     app.run(host="0.0.0.0", debug=True, port=port)
