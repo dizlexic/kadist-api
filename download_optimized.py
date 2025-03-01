@@ -1,31 +1,27 @@
 #!/usr/bin/env python
-import shlex
 
-import yake
+import argparse
+import glob
+import hashlib
 import json
 import os
-import glob
-import argparse
+from datetime import datetime
+from typing import Dict
+from typing import List
+
 import requests
 import requests_cache
-import hashlib
-import time
-import subprocess
-
-from datetime import datetime
-from s3helper import S3Helper
-from dev_utils import image_url_to_data_uri
-from typing import Dict, List
-from external_videos import get_external_videos
-from kview_videos import get_kview_videos
-from yt_dlp import YoutubeDL
-from dotenv import load_dotenv, dotenv_values
-from s3helper import S3Helper
-from typing import Dict
-from tqdm import tqdm
+import yake
+from dotenv import dotenv_values
 from dotenv import load_dotenv
+from tqdm import tqdm
+from yt_dlp import YoutubeDL
 
 from app_utils import clear_temporary_videos
+from dev_utils import image_url_to_data_uri
+from external_videos import get_external_videos
+from kview_videos import get_kview_videos
+from s3helper import S3Helper
 
 load_dotenv()
 
@@ -194,7 +190,7 @@ def fetch_kvl(args, manifest_folder: str):
         for x in tqdm(r.json()["results"]):
             url = x["external_key"]
             url = url.replace('https://kadist.org', source_ip)
-            url = url.replace(source_url, source_ip)
+            url = cloudflare_url(url)
             print(f"fetch_kvl::fetching: {url}")
             req = requests.get(url)
             work_details = {}
@@ -642,11 +638,11 @@ def genClipsMain():
 # START MAIN
 if __name__ == "__main__":
 
-    remove = False
     parser = argparse.ArgumentParser(description="video downloader")
 
+    # Fix: Use `store_true` for a flag-like behavior
     parser.add_argument(
-        "--rm", const=remove, action="store", nargs="+", help="remove files from bucket"
+        "--rm", action="store_true", help="remove files from bucket"
     )
 
     parser.add_argument(
@@ -657,11 +653,12 @@ if __name__ == "__main__":
 
     manifest_folder = "imported_videos"
 
-    if remove:
+    # Use args.rm instead of `remove`
+    if args.rm:
         rm_json_files(manifest_folder)
 
-    fetch_kvl(args, manifest_folder) # should generate clip
-    fetch_kadist(args, manifest_folder) # should generate clip
+    fetch_kvl(args, manifest_folder)  # should generate clip
+    fetch_kadist(args, manifest_folder)  # should generate clip
     fetch_external(args, manifest_folder)  # should generate clip
     fetch_kviews(args, manifest_folder)  # should generate clip
 
