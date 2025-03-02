@@ -13,7 +13,7 @@ ENV WORK_DIR="/api" \
    ENV_FILE="/api/environment.yml" \
    ENV_NAME="ktv-api" \
    PATH="/opt/conda/envs/ktv-api/bin:$PATH" \
-   API_PORT="1337"
+   API_PORT=1337
 
 # Set the working directory
 WORKDIR $WORK_DIR

@@ -24,12 +24,12 @@ def remove_tags(text):
 
 
 def get_kview_videos():
-    with open("../../storage/config/kview_videos.json") as f:
+    with open("storage/config/kview_videos.json") as f:
         return json.loads(f.read())
 
 
 def source_container_pages():
-    with open("../../storage/config/kview_scrape_pages.yaml") as f:
+    with open("storage/config/kview_scrape_pages.yaml") as f:
         return [x for x in yaml.safe_load(f.read()) if x]
 
 
@@ -82,7 +82,7 @@ def scrape_videos(source_pages):
             videos.append(video)
 
     if videos:
-        with open("../../storage/config/kview_videos.json", "w") as f:
+        with open("storage/config/kview_videos.json", "w") as f:
             f.write(json.dumps(videos, indent=2, ensure_ascii=False))
             return videos
 
