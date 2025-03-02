@@ -5,6 +5,7 @@ import glob
 import hashlib
 import json
 import os
+import sys
 from datetime import datetime
 from typing import Dict
 from typing import List
@@ -22,6 +23,8 @@ from lib.dev_utils import image_url_to_data_uri
 from lib.s3helper import S3Helper
 from scripts.pipeline.external_videos import get_external_videos
 from scripts.pipeline.kview_videos import get_kview_videos
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 

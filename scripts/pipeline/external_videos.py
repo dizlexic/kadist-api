@@ -1,11 +1,15 @@
 import json
+import os
 import random
+import sys
 import time
 
 import requests
 import requests_cache
 from tqdm import tqdm
 from youtubesearchpython import VideosSearch
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 requests_cache.CachedSession(
     cache_name="storage/caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
@@ -86,7 +90,7 @@ def search_youtube_by_keyword(
 
     vs = VideosSearch(f"{artist_name} artist", limit=max_videos_per_search)
     for result in vs.result()["result"]:
-        result["title"]
+        var = result["title"]
         if "type" in result and result["type"] == "video":
             if result["viewCount"]["text"]:
                 view_count_chars = "".join(

@@ -135,5 +135,6 @@ If unspecified, default pipeline values are used.
 - Ensure that all environment variables are set correctly in the `.env` file before running the application.
 - For any issues or feature requests, please open an issue in the repository.
 - Use cron jobs or task schedulers to automate the ingestion process if needed.
+- The application stores all imported video data in the `storage/imported_videos/` directory.
 
 ---
