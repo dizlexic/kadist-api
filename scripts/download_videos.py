@@ -14,10 +14,10 @@ from dotenv import load_dotenv, dotenv_values
 from tqdm import tqdm
 from yt_dlp import YoutubeDL
 
-from external_videos import get_external_videos
-from kview_videos import get_kview_videos
 from lib.dev_utils import image_url_to_data_uri
 from lib.s3helper import S3Helper
+from scripts.pipeline.external_videos import get_external_videos
+from scripts.pipeline.kview_videos import get_kview_videos
 
 load_dotenv()
 config = dotenv_values("../.env")
@@ -37,10 +37,7 @@ source_url = os.getenv("KAPI_SOURCE_URL", "https://kapi.kadist.org")
 
 
 def cloudflare_url(url: str) -> str:
-    # replace "http://54.218.253.163" with "https://kadist.org"
-    url = url.replace('https://kadist.org', source_url)
-    print(" *", f"replacing {source_ip} with {source_url}")
-    return url.replace(source_ip, source_url)
+    return url
 
 
 def rm_json_files(folder: str):

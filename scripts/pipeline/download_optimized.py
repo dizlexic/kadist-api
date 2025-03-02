@@ -17,15 +17,15 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 from yt_dlp import YoutubeDL
 
-from external_videos import get_external_videos
-from kview_videos import get_kview_videos
 from lib.app_utils import clear_temporary_videos
 from lib.dev_utils import image_url_to_data_uri
 from lib.s3helper import S3Helper
+from scripts.pipeline.external_videos import get_external_videos
+from scripts.pipeline.kview_videos import get_kview_videos
 
 load_dotenv()
 
-config = dotenv_values("../.env")
+config = dotenv_values("../../.env")
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/storage/tmp')
 bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
 source_ip = os.getenv("KAPI_SOURCE_IP")
