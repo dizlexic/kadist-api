@@ -25,7 +25,7 @@ config = dotenv_values("../.env")
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/tmp')
 
 requests_cache.CachedSession(
-    cache_name="caches/kvl_cache", backend="sqlite", expire_after=60 * 96
+    cache_name="storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
 )  # minutes
 
 bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")

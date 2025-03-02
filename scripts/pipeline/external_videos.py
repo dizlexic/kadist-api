@@ -8,7 +8,7 @@ from tqdm import tqdm
 from youtubesearchpython import VideosSearch
 
 requests_cache.CachedSession(
-    cache_name="caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="storage/caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after in seconds
 
 
