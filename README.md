@@ -6,42 +6,113 @@ A repository for ingesting and managing Kadist TV media.
 
 ## Development Setup
 
+Follow these steps to set up the development environment:
+
 ### 1. Create and Activate Conda Environment
 
-```bash
+```shell script
 $ conda create -n kadisttv python=3.8
 $ conda activate kadisttv
 ```
 
+Alternatively, if using `environment.yml`, you can create the environment with:
+
+```shell script
+$ conda env create -f environment.yml
+$ conda activate ktv-api
+```
+
 ### 2. Install Requirements
 
-```bash
+If not using `environment.yml`, manually install dependencies:
+
+```shell script
 $ pip install -r requirements.txt
 $ pip install -r dev-requirements.txt
 ```
 
 ### 3. Configure Environment Variables
 
-Copy the `.env.example` file to `.env` and fill in the required values:
+Copy the provided `.env.example` file to `.env` and set appropriate values for required variables:
 
-```plaintext
+```
 AWS_ACCESS_KEY_ID="<your-aws-access-key-id>"
 AWS_SECRET_ACCESS_KEY="<your-aws-secret-access-key>"
 ```
 
 ---
 
-## Admin Dashboard
+## Directory Structure
 
-Access the admin UI at the following URL path:
+Understanding the project directory structure is critical for seamless operation:
 
-`/admin`
+- **`bin/`**  
+  Contains scripts for running key operations such as ingestion pipeline and server startup.
+  - `ingest.sh`: Runs the ingestion pipeline to fetch, clip, and process media.
+  - `server.sh`: Launches the application server for local testing and development.
+
+- **`storage/`**  
+  Group for all storage-related files. This includes:
+  - `storage/tmp/`: Holds raw media files before processing.
+  - `storage/caches/`: sqlite databases for caching metadata and other information.
+  - `storage/config/`: Holds configuration files for the application.  
+    Example:
+    - `clip_overrides.json`: Defines custom specifications for clips, such as offsets and lengths.
+  - `imported_videos/`: Directory for storing videos that have been ingested into the system.
+- **`lib/`**  
+  Contains the core library files for the application.
+
+- **`scripts/`**
+  Contains scripts for various tasks, including ingestion and processing of media files.
+  - `scripts/pipeline/*`: Contains the pipeline scripts for processing media files.
+
+- **`tests`**
+  - Contains optimism.
+
+- **`views/`**
+  - Contains HTML templates for the web application.
+
+  - **`requirements.txt`**  
+    Specifies Python dependencies required for the project.
+
+  - **`dev-requirements.txt`**  
+    Contains additional dependencies for development and testing purposes.
+
+---
+
+## How to Use
+
+### Ingest Media
+
+To ingest new media into the system, use the ingestion script. This script will fetch video data, apply overrides from
+configuration files (if any), and process the media:
+
+```shell script
+$ ./bin/ingest.sh
+```
+
+---
+
+### Start the Server
+
+To access the application, start the local server using:
+
+```shell script
+$ ./bin/server.sh
+```
+
+Once the server starts, you can access the admin dashboard at:
+
+`http://localhost:<API_PORT>/admin`
+
+Replace `<API_PORT>` with the port number specified in your `.env` file (default is 1337).
 
 ---
 
 ## Clip Overrides
 
-Specify clip overrides using the `config_files/clip_overrides.json` file. The format should be as follows:
+Custom clip configurations can be specified in `config_files/clip_overrides.json`. Override the clip properties for any
+video using the following format:
 
 ```json
 {
@@ -52,63 +123,17 @@ Specify clip overrides using the `config_files/clip_overrides.json` file. The fo
 }
 ```
 
-`clip_offset` and `clip_length` are optional fields. Adjust these values as needed.
+- `clip_offset`: Time (in seconds) to start the clip (optional).
+- `clip_length`: Duration (in seconds) of the clip (optional).
 
----
-
-## Import Pipeline
-
-### Ingest
-
-Run the ingestion script manually or set it as a cron job:
-
-```bash
-$ ./bin/ingest.sh
-```
-
-### Run the Server
-
-Start the server locally:
-
-```bash
-$ ./bin/server.sh
-```
-
----
-
-## TODO (Feature Backlog)
-
-- [ ] Add a `scrape_vimeo.py` script to scrape Vimeo videos.
-- [ ] Extract video poster links for KViews.
-- [ ] Scrape metadata from:
-  - Vimeo: [https://vimeo.com/kadist](https://vimeo.com/kadist)
-  - YouTube: [https://www.youtube.com/user/KADIVIEW/videos](https://www.youtube.com/user/KADIVIEW/videos)
-- [ ] Generate `config_files/vimeo_videos.json` with the following format:
-  ```json
-  [
-    {
-      "permalink": "http://example.com/abraham-cruzvillegas/",
-      "title": "Abraham Cruzvillegas",
-      "region": "All",
-      "description": "Description of the video...",
-      "image_url": "https://example.com/image.png",
-      "image_width": 350,
-      "image_height": 218,
-      "video_url": "http://example.com/video.mp4"
-    }
-  ]
-  ```
-- [ ] Use the existing pipeline to fetch, clip, and transcode videos.
+If unspecified, default pipeline values are used.
 
 ---
 
 ## Notes
 
-Refer to `kview_videos.py` for the scraping logic. To scrape Vimeo videos:
+- Ensure that all environment variables are set correctly in the `.env` file before running the application.
+- For any issues or feature requests, please open an issue in the repository.
+- Use cron jobs or task schedulers to automate the ingestion process if needed.
 
-- Create a new script: `vimeo_videos.py`.
-- Mimic the structure of the `scrape_videos()` function.
-- Ensure the output JSON is placed in `config_files/vimeo_videos.json`.
-- The pipeline to fetch and transcode uses [yt_dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org/).
-
-Keep the existing fetching and transcoding mechanisms unchanged to ensure system compatibility.
+---
