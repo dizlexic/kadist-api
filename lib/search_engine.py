@@ -7,7 +7,7 @@ from whoosh.filedb.filestore import RamStorage
 from whoosh.highlight import WholeFragmenter
 from whoosh.qparser import MultifieldParser
 
-from lib.app_utils import load_videos
+from .app_utils import load_videos
 
 
 class SearchEngine:

@@ -8,7 +8,7 @@ import time
 from collections import Counter, defaultdict
 from typing import Dict, List, Sequence
 
-from lib.s3helper import S3Helper
+from .s3helper import S3Helper
 
 s3 = S3Helper("arpedia-dev")
 
