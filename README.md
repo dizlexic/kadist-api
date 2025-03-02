@@ -153,9 +153,13 @@ If unspecified, default pipeline values are used.
 ## Notes
 
 - Ensure that all environment variables are set correctly in the `.env` file before running the application.
+
 - For any issues or feature requests, please open an issue in the repository.
+
 - Use cron jobs or task schedulers to automate the ingestion process if needed.
+
 - The application stores all imported video data in the `storage/imported_videos/` directory.
+
 -
 Consider [setting up a service](https://stackoverflow.com/questions/38739198/how-to-run-a-script-as-a-service-in-ubuntu)
 to monitor the application and restart it if it crashes.
