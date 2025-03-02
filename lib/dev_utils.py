@@ -16,7 +16,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 urllib3.disable_warnings()
 
 requests_cache.CachedSession(
-    cache_name="caches/poster_cache", backend="sqlite", expire_after=60 * 96
+    cache_name="storage/caches/poster_cache", backend="sqlite", expire_after=60 * 96
 )  # minutes
 
 

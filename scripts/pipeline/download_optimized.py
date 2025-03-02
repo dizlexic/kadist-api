@@ -33,7 +33,7 @@ source_url = os.getenv("KAPI_SOURCE_URL")
 
 
 requests_cache.CachedSession(
-    cache_name="caches/kvl_cache", backend="sqlite", expire_after=60 * 96
+    cache_name="storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
 )  # minutes
 
 s3helper = S3Helper(bucket_name)
