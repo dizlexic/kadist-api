@@ -8,7 +8,7 @@ conda activate ktv-api
 pip install -r requirements.txt -U
 pip install -r dev-requirements.txt -U
 
-python scripts/kadist_videos.py
-python scripts/external_videos.py
-python scripts/kview_videos.py
-python scripts/download_optimized.py
+python pipeline/scripts/kadist_videos.py
+python pipeline/scripts/external_videos.py
+python pipeline/scripts/kview_videos.py
+python pipeline/scripts/download_optimized.py

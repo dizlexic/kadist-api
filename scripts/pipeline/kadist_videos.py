@@ -168,7 +168,7 @@ def generate_kadist_video_list(pages=15):
             break
 
     if videos:
-        output_file = "config/kadist_videos.json"
+        output_file = "../storage/config/kadist_videos.json"
         with open(output_file, "w") as f:
             f.write(json.dumps(videos, indent=2, ensure_ascii=False))
             print(f" * written {len(videos)} to {output_file}")

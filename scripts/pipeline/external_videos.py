@@ -5,6 +5,7 @@ import time
 import requests
 import requests_cache
 from tqdm import tqdm
+from youtubesearchpython import VideosSearch
 
 requests_cache.CachedSession(
     cache_name="caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
@@ -74,7 +75,7 @@ VIDEO_SEARCH_ERRATA = [
 def get_external_videos():
     """get a list of youtube URLs, only the link is returned."""
 
-    with open("../storage/config/external_videos.json") as f:
+    with open("../../storage/config/external_videos.json") as f:
         return [x for x in set(json.loads(f.read()))]
 
 
@@ -120,7 +121,7 @@ def generate_external_video_list(min_view_count, include_search=True):
                     videos.append(video_link)
 
         if videos:
-            with open("../storage/config/external_videos.json", "w") as f:
+            with open("../../storage/config/external_videos.json", "w") as f:
                 f.write(json.dumps(videos, indent=2, ensure_ascii=False))
                 return videos
 
