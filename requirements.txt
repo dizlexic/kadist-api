@@ -5,7 +5,6 @@ flask-cors~=3.0.10
 werkzeug
 gunicorn
 whoosh~=2.7.4
-boto~=2.49.0
 tqdm~=4.67.1
 pre-commit
 python-dotenv~=0.21.0
@@ -16,4 +15,8 @@ yaml~=0.2.5
 pyyaml~=6.0.2
 bs4~=4.12.3
 beautifulsoup4~=4.12.3
-pillow
+pillow~=11.1.0
+boto3~=1.36.3
+botocore~=1.36.3
+yake~=0.4.8
+yt-dlp~=2025.2.19
