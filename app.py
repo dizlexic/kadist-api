@@ -396,7 +396,7 @@ if __name__ == "__main__":
     env = os.environ.get('KTV_ENV') or 'development'
 
     try:
-        port = int(os.environ.get('TV_API_PORT', 1337))
+        port = int(os.environ.get('API_PORT', 1337))
     except ValueError:
         port = 1337
 
