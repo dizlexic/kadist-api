@@ -1,6 +1,6 @@
 name: ktv-api
 dependencies:
-  - python=3.8
+  - python=3.12.9
   - pip
   - pip:
       - -r ./requirements.txt
