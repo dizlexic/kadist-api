@@ -6,6 +6,7 @@ from typing import Sequence, Any
 from whoosh.filedb.filestore import RamStorage
 from whoosh.highlight import WholeFragmenter
 from whoosh.qparser import MultifieldParser
+from whoosh.fields import *
 
 from .app_utils import load_videos
 
