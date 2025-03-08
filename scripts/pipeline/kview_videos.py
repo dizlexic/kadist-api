@@ -72,7 +72,6 @@ def scrape_videos(source_pages):
                 video["image_url"] = "https://s3.amazonaws.com/arpedia/" + hashlib.md5(video["video_url"].encode("utf8")).hexdigest() + ".jpg"
                 r = requests.head(video["image_url"])
                 if not r.status_code == requests.codes.ok:
-                    print("failed to find poster image", video["image_url"])
                     video["image_url"] = "https://s3.amazonaws.com/arpedia/sixty_seconds.png"
 
                 video["image_width"] = 350
@@ -90,7 +89,7 @@ def scrape_videos(source_pages):
 
 
 if __name__ == "__main__":
+    print(" *", "starting kview_videos.py")
     source_pages = source_container_pages()
-    print(" *", f"source pages to scrape: {len(source_pages)} source_pages")
     videos = scrape_videos(source_pages)
-    print(" *", f"written {len(videos)} videos")
+    print(" *", "finished kview_videos.py")
