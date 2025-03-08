@@ -3,7 +3,7 @@ import os
 from typing import Dict, Sequence, Union
 
 import boto3
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 from dotenv import dotenv_values
 
 
@@ -74,8 +74,16 @@ class S3Helper:
         try:
             self.s3.Object(self.bucket.name, filename).load()
             return True
-        except self.s3.meta.client.exceptions.NoSuchKey:
-            return False
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                # File does not exist
+                return False
+            elif e.response['Error']['Code'] == '403':
+                # File exists but forbidden
+                return False
+            else:
+                # Raise other unexpected errors
+                raise
 
     def file_size(self, filename):
         try:

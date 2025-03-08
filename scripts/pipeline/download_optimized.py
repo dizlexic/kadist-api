@@ -48,82 +48,21 @@ def cloudflare_url(url: str) -> str:
 
 
 def rm_json_files(folder: str):
-    """
-    Remove all JSON files from a specified folder.
-
-    This function iterates over all the files in the given folder and deletes
-    any file that has a '.json' extension. It is designed to work with folders
-    that contain files which need filtering and removal based on their extensions.
-
-    Parameters:
-    folder (str): The path to the folder in which JSON files will be removed.
-
-    Raises:
-    FileNotFoundError: If the specified folder does not exist.
-    PermissionError: If the program does not have necessary permissions to access
-    or delete files in the specified folder.
-    """
     for filename in os.listdir(folder):
         if filename.endswith(".json"):
             os.remove(os.path.join(folder, filename))
 
 
 def url_exists(url):
-    """
-    Checks the existence of a URL by making a HEAD request and verifying the HTTP status code.
-
-    Parameters
-    ----------
-    url : str
-        The URL to check for availability.
-
-    Returns
-    -------
-    bool
-        True if the URL exists and returns a status code of 200, otherwise False.
-
-    Raises
-    ------
-    requests.exceptions.RequestException
-        If there is an issue making the HTTP request.
-    """
     r = requests.head(url)
     return r.status_code == 200
 
 
 def generate_id(mp4: str) -> str:
-    """
-    Generate a unique identifier for the given input string.
-
-    This function takes a string input, encodes it as UTF-8, and computes its MD5
-    hash. The resulting hash is returned as a hexadecimal string. It is commonly
-    used to generate consistent and unique identifiers for string data.
-
-    Args:
-        mp4 (str): The input string to hash.
-
-    Returns:
-        str: The MD5 hash of the input string represented as a hexadecimal value.
-    """
     return hashlib.md5(mp4.encode("utf8")).hexdigest()
 
 
 def generate_tags(text: str) -> List[str]:
-    """
-    Generate tags from a given text using the YAKE keyword extraction
-    algorithm. The method filters out common stop tags and returns
-    the most relevant keywords.
-
-    Parameters:
-        text (str): The input text from which the tags are extracted.
-
-    Returns:
-        List[str]: A list of the extracted tags as strings.
-
-    Raises:
-        None
-
-    """
     #
     # https://github.com/LIAAD/yake
     #
@@ -152,43 +91,10 @@ def generate_tags(text: str) -> List[str]:
 
 
 def generate_abbreviated_description(description: str) -> str:
-    """
-    Generates an abbreviated description by extracting the first sentence
-    from the provided text.
-
-    Parameters:
-        description: str
-            A full textual description from which the first sentence
-            will be extracted.
-
-    Returns:
-        str: The first sentence of the input description.
-
-    """
     return description.split(".")[0]
 
 
 def download_video_file_to_mp4(url: str):
-    """
-        Downloads a video file from a specified URL and saves it in MP4 format. The function checks
-        if the file already exists locally; if so, it directly returns the local file path. Otherwise,
-        it attempts to download the video using ffmpeg and save it to a temporary directory.
-
-        Parameters:
-        ----------
-        url : str
-            The URL of the video to be downloaded.
-
-        Returns:
-        -------
-        str|bool
-            The path to the downloaded MP4 file if successful, or False if the download fails.
-
-        Raises:
-        ------
-        OSError
-            If there is an issue executing the ffmpeg command during download.
-    """
     dest_file = f"{TMP}/{generate_id(url)}.mp4"
     if os.path.exists(dest_file):
         print("local file exits serving it back!")
@@ -205,24 +111,6 @@ def download_video_file_to_mp4(url: str):
 
 
 def write_manifest(video_type: str, manifest: Dict, manifest_folder: str):
-    """
-    Writes a manifest file for a given video type and metadata.
-
-    The function validates that the required keys exist in the manifest dictionary, processes the
-    image URL into a data URI if it is provided, and finally writes the manifest dictionary to a
-    JSON file in the specified folder. The manifest type is converted to lowercase before saving.
-
-    Args:
-        video_type (str): The type of the video to associate with the manifest.
-        manifest (Dict): A dictionary containing metadata about the video, such as 'id', 'title',
-            'description', 'abbreviated_description', 'tags', 'mp4', and 'image_url'.
-        manifest_folder (str): The folder path where the manifest file will be saved.
-
-    Raises:
-        AssertionError: If any of the required keys like 'id', 'title', 'description',
-            'abbreviated_description', 'tags', 'mp4', or 'image_url' are missing
-            in the manifest dictionary.
-    """
     assert "id" in manifest
     assert "title" in manifest
     assert "description" in manifest
@@ -480,8 +368,6 @@ def fetch_kadist(args, manifest_folder: str):
                             self.save_video_create_manifest(dest_file)
                         else:
                             ydl.download([url])
-
-
                 except Exception as e:
                     print("Error Downloading")
                     print(str(e))
