@@ -53,17 +53,24 @@ def download_video_file(url):
 
     return f.name
 
-
 def image_url_to_data_uri(imgurl: str):
     max_size = 400, 400
-    with requests.get(imgurl.strip(), timeout=60, verify=False, stream=True) as r:
-        r.raise_for_status()
-        buffer = BytesIO()
+    try:
+        with requests.get(imgurl.strip(), timeout=60, verify=False, stream=True) as r:
+            r.raise_for_status()  # Raises HTTPError if the HTTP request failed
 
-        img = Image.open(BytesIO(r.content))
-        img.thumbnail(max_size, PIL.Image.LANCZOS)
-        img.convert("RGB").save(buffer, format="PNG", optimize=True, quality=90)
+            buffer = BytesIO()
 
-        buffer.seek(0)
-        data64 = "".join(base64.b64encode(buffer.read()).decode("utf-8").splitlines())
-        return f"data:image/png;base64,{data64}"
+            img = Image.open(BytesIO(r.content))
+            img.thumbnail(max_size, PIL.Image.LANCZOS)
+            img.convert("RGB").save(buffer, format="PNG", optimize=True, quality=90)
+
+            buffer.seek(0)
+            data64 = "".join(base64.b64encode(buffer.read()).decode("utf-8").splitlines())
+            return f"data:image/png;base64,{data64}"
+    except requests.exceptions.HTTPError as e:
+        print(f"Image URL not found or fetch failed for URL: {imgurl} - {e}")
+        return None  # Return None or fallback to a default image
+    except Exception as e:
+        print(f"Unexpected error while processing image: {imgurl} - {e}")
+        return None
