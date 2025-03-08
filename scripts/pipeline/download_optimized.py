@@ -54,8 +54,12 @@ def rm_json_files(folder: str):
 
 
 def url_exists(url):
-    r = requests.head(url)
-    return r.status_code == 200
+    try:
+        r = requests.head(url, allow_redirects=True, timeout=10)
+        return r.status_code == 200
+    except requests.RequestException:
+        return False
+
 
 
 def generate_id(mp4: str) -> str:
@@ -120,7 +124,12 @@ def write_manifest(video_type: str, manifest: Dict, manifest_folder: str):
     assert "image_url" in manifest
 
     # if not manifest['image_url']:
-    manifest["image_data_uri"] = image_url_to_data_uri(manifest["image_url"])
+    image_url = manifest.get("image_url")
+    if not image_url or not url_exists(image_url):
+        print(f"Invalid or missing image URL: {image_url}")
+        manifest["image_data_uri"] = None  # Or assign a default placeholder
+    else:
+        manifest["image_data_uri"] = image_url_to_data_uri(image_url)
 
     print(" *", f"write_manifest [type: {video_type}], ID: {manifest['id']}")
 
