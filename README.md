@@ -165,3 +165,19 @@ Consider [setting up a service](https://stackoverflow.com/questions/38739198/how
 to monitor the application and restart it if it crashes.
 
 ---
+
+# MASSIVE HACK 
+youtubesearchpython/core/requests.py
+
+line 20
+```python
+    def syncPostRequest(self) -> httpx.Response:
+        return httpx.post(
+            self.url,
+            headers={"User-Agent": userAgent},
+            json=self.data,
+            timeout=self.timeout,
+            # proxies=self.proxy
+        )
+```
+You must comment out the proxies=self.proxy line in the httpx.post function call. This is a temporary fix until the project is updated or the package is forked.

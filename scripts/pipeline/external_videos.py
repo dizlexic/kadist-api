@@ -125,9 +125,15 @@ def generate_external_video_list(min_view_count, include_search=True):
                     videos.append(video_link)
 
         if videos:
-            with open("../../storage/config/external_videos.json", "w") as f:
-                f.write(json.dumps(videos, indent=2, ensure_ascii=False))
+            try:
+                os.makedirs("storage/config", exist_ok=True)  # Ensure directory exists
+                file_path = os.path.join("storage", "config", "external_videos.json")
+                with open(file_path, "w") as f:
+                    f.write(json.dumps(videos, indent=2, ensure_ascii=False))
                 return videos
+            except Exception as e:
+                print(f"Error while writing to file: {e}")
+                return None
 
 
 if __name__ == "__main__":
