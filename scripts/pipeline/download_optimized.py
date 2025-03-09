@@ -381,7 +381,7 @@ def fetch_kadist(args, manifest_folder: str):
                     print("Error Downloading")
                     print(str(e))
 
-    with open("config/kadist_videos.json") as f:
+    with open("storage/config/kadist_videos.json") as f:
         videos = json.loads(f.read())
 
         for x in tqdm(videos):
@@ -792,7 +792,7 @@ def lookup_video_overrides(video):
     """
 
     video_id = video["id"]
-    OVERRIDES_CONFIG = "config/clip_overrides.json"
+    OVERRIDES_CONFIG = "storage/config/clip_overrides.json"
     if os.path.exists(OVERRIDES_CONFIG):
         with open(OVERRIDES_CONFIG, encoding="utf-8") as f:
             overrides = json.loads(f.read())
