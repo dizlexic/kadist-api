@@ -11,7 +11,7 @@ from tqdm import tqdm
 etl_headers = {}
 
 session = requests_cache.CachedSession(
-    cache_name="storage/caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="../../storage/caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after 7 days
 
 
@@ -63,16 +63,19 @@ def generate_kadist_video_list(pages=15):
     regions = [
         ("Europe", "europe-russia"),
         ("North America", "north-america"),
+        ("Latin America", "latin-america"),
         ("Middle East & Africa", "middle-east-africa"),
-        ("Americas", "americas"),
         ("Asia", "asia"),
     ]
 
     failed_requests = 0
     current_page = 1  # Initialize the page counter
 
-    while True:  # Simulating a "do while" loop
-        for (region, region_url_fragment) in tqdm(regions, leave=False):
+    for (region, region_url_fragment) in tqdm(regions, leave=False):
+        current_page = 1
+        exists = True
+
+        while exists:
             url = (
                     f"https://kadist.org/region/{region_url_fragment}/page/%d/?post_type=program"
                     % current_page
@@ -154,21 +157,22 @@ def generate_kadist_video_list(pages=15):
                                             videos.append(video)
 
             else:
-                print("failed request")
-                failed_requests = failed_requests + 1
-                if failed_requests > 5:
-                    print("failed total > limit", failed_requests)
-                    break
+                print("failed request", r.status_code)
+
+                if r.status_code == 404:
+                    print('url:', url)
+                    exists = False
+
+            current_page += 1
 
         # Increment the page counter
-        current_page += 1
-
-        # Exit condition for the simulated "do while" loop
-        if current_page > pages:
-            break
-
     if videos:
-        output_file = "../storage/config/kadist_videos.json"
+        output_file = "../../storage/config/kadist_videos.json"
         with open(output_file, "w") as f:
             f.write(json.dumps(videos, indent=2, ensure_ascii=False))
             print(f" * written {len(videos)} to {output_file}")
+
+if __name__ == "__main__":
+    print(" *", "starting kadist_videos.py")
+    generate_kadist_video_list()
+    print(" *", "finished kadist_videos.py")
