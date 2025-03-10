@@ -103,7 +103,7 @@ def ui():
         )
 
     return Response(
-        render_template("ui.html", title="Kadist TV", videos=videos),
+        render_template("views/ui.html", title="Kadist TV", videos=videos),
         status=200,
         mimetype="text/html",
     )
@@ -133,7 +133,7 @@ def admin():
 
     return Response(
         render_template(
-            "admin.html",
+            "views/admin.html",
             sorted_videos=sorted_videos,
             index=index,
             interview_videos=interview_videos,
