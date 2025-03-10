@@ -12,7 +12,7 @@ from youtubesearchpython import VideosSearch
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 requests_cache.CachedSession(
-    cache_name="storage/caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="../../storage/caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after in seconds
 
 
