@@ -80,7 +80,7 @@ Understanding the project directory structure is critical for seamless operation
 - **`tests`**
   - Contains optimism.
 
-- **`views/`**
+- **`templates/`**
   - Contains HTML templates for the web application.
 
   - **`requirements.txt`**  
