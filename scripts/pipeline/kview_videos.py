@@ -46,7 +46,7 @@ def scrape_videos(source_pages):
             region = "All"
 
             # remove unused tags
-            for elem in soup.findAll(["script", "aside"]):
+            for elem in soup.find_all(["script", "aside"]):
                 elem.extract()
 
             artist = soup.select("h1", {"class": "article-title"})[0].text.strip()
@@ -57,7 +57,7 @@ def scrape_videos(source_pages):
                      )}
 
             try:
-                html5_video_tag = soup.findAll("source", type="video/mp4")[0]
+                html5_video_tag = soup.find_all("source", type="video/mp4")[0]
             except IndexError:
                 print(f"No video for {url}")
                 continue
