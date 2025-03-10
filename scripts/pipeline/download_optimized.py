@@ -235,7 +235,7 @@ def fetch_kvl(args, manifest_folder: str):
     OSError
         If file operations, such as removing temporary video files, encounter an error.
     """
-    print(" *", "fetching kvl...")
+    print(" *", "starting fetch_kvl")
     payload = {
         "not_null": [
             "video_url",
@@ -304,13 +304,14 @@ def fetch_kvl(args, manifest_folder: str):
                     os.remove(vfile)
             else:
                 print("No video id for url", url, video_id, video_duration)
+        print(" *", "fetch_kvl::completed")
 
 
 def fetch_kadist(args, manifest_folder: str):
     """
     def fetch_kadist(args, manifest_folder: str):
         """
-    print(" *", "fetching kadist...")
+    print(" *", "fetching starting fetch_kadist")
 
     class VimeoDownloader:
         def __init__(self, manifest_folder, video):
@@ -402,49 +403,11 @@ def fetch_kadist(args, manifest_folder: str):
 
             VimeoDownloader(manifest_folder, video).download_video(x["raw_video_url"])
 
+    print(' *', 'fetch_kadist completed')
+
 
 def fetch_external(args, manifest_folder):
-    """
-    fetch_external(args, manifest_folder):
-        Fetches external videos and processes them. It can either remove specified files
-        from S3 if rm argument is provided or downloads and processes external videos.
-
-        Parameters:
-            args: Arguments passed to determine operation. Should include information
-                  about the files to remove or the operation mode.
-            manifest_folder: The folder path where the manifests will be stored.
-
-    YoutubeDownloader:
-        A class for handling the downloading and processing of YouTube videos.
-
-        Attributes:
-            manifest_folder: The folder path where the video manifests will be stored.
-            video_type: The type of the video, defaults to "external".
-
-        Methods:
-            save_video_create_manifest(dest_file):
-                Uploads the video file to S3, generates a clip and its manifest, and
-                removes the local video file once done.
-
-            callback(d):
-                A callback function triggered periodically during the video download
-                process. If the video download completes, this method saves the video
-                and creates its manifest.
-
-            process_description(s):
-                Processes the input string to extract and clean up its first line.
-
-            format_upload_date(s):
-                Converts the input upload date string from "YYYYMMDD" format to
-                "MM/DD/YYYY" format.
-
-            download_video(url: str):
-                Downloads the YouTube video specified by the given URL. Extracts
-                metadata, processes the video, updates the manifest, and uploads the
-                video and its details to S3. If the video is already available locally,
-                it skips the download and uploads the pre-existing file.
-    """
-    print(" *", "fetch_external videos")
+    print(" *", "starting fetch_external")
 
     class YoutubeDownloader:
         def __init__(self, manifest_folder):
@@ -541,31 +504,11 @@ def fetch_external(args, manifest_folder):
 
         for url in tqdm(external_videos):
             YoutubeDownloader(manifest_folder).download_video(url)
-
+    print(" *", "fetch_external completed")
 
 def fetch_kviews(args, manifest_folder):
-    """
-    Fetch and process "KView" videos, save them as MP4 files, create their associated
-    metadata, and store both videos and metadata into the appropriate locations. This
-    function also generates short video clips for each full-length video and saves
-    related metadata.
-
-    Arguments:
-        args: Command-line arguments or configuration parameter object required
-              for the function's operations. Specific type and structure are not
-              detailed here.
-        manifest_folder (str): Directory path where video and clip metadata files
-              (manifests) will be stored.
-
-    Raises:
-        None explicitly, but errors may occur due to network issues, file access
-        permissions, or failures in helper functions invoked internally.
-
-    Returns:
-        None
-    """
+    print(" *", "starting fetch_kviews")
     kview_videos = get_kview_videos()
-    print(" *", f"fetch_kview_videos, processing {len(kview_videos)} videos")
 
     video_type = "kview"
 
@@ -604,6 +547,7 @@ def fetch_kviews(args, manifest_folder):
 
         else:
             print(" *", f"fetch_kviews, skipping {kview['video_url']} - NOT FOUND")
+    print(" *", "fetch_kviews completed")
 
 # END DOWNLOAD FUNCTIONS
 
@@ -611,26 +555,6 @@ def fetch_kviews(args, manifest_folder):
 def _clipify(
         video_id: str, mp4: str, offset: float, duration: float, forcedownload: bool = False
 ) -> str:
-    """
-    Create a video clip from an existing video file using FFmpeg.
-
-    This function generates a video clip from the provided video file, starting from the specified
-    offset and lasting for the given duration. It uses the `ffmpeg` tool to create the clip with
-    minimal processing and saves it to a designated temporary directory. If a clip with the same
-    parameters already exists, it will be reused unless the `forcedownload` parameter is set to True.
-
-    Parameters:
-        video_id (str): A unique identifier for the video. Used to generate the filenames.
-        mp4 (str): The path to the source video file.
-        offset (float): The starting point of the clip in seconds.
-        duration (float): The duration of the clip in seconds.
-        forcedownload (bool): Whether to force the creation of the clip even if it already
-            exists in the destination. Defaults to False.
-
-    Returns:
-        str: The path to the generated clip file if successful, or False if the process
-            failed.
-    """
     dest_file = f"{TMP}/{video_id}_clip.mp4"
     source_file = f"{TMP}/{video_id}.mp4"
     if not os.path.exists(source_file):
@@ -648,27 +572,6 @@ def _clipify(
 
 
 def _get_video_length(video_id: str, mp4: str) -> float:
-    """
-    Determine the duration of a video file in seconds.
-
-    This function uses ffprobe to fetch the duration of a video file. It first
-    checks whether a local file with the video ID exists. If the file exists,
-    it uses the local file; otherwise, it uses the provided MP4 file path. The
-    duration is read in seconds as a floating-point number. If the duration cannot
-    be determined, the function returns None.
-
-    Arguments:
-        video_id: str
-            The unique identifier of the video, used to locate the local video
-            clip file.
-        mp4: str
-            The file path or URL to the MP4 video file.
-
-    Returns:
-        float:
-            The duration of the video in seconds, or None if the duration could
-            not be determined.
-    """
     local_file = f"{TMP}/{video_id}_clip.mp4"
 
     src = local_file if os.path.exists(local_file) else mp4
@@ -683,33 +586,6 @@ def _get_video_length(video_id: str, mp4: str) -> float:
 def generate_clip_and_write_to_s3(
         video: Dict, duration: float, forcedownload: bool = False, offset="auto"
 ):
-    """
-        Generates a video clip with a specified duration and uploads it to an S3 bucket.
-
-        The function generates a clip from a given video, which is either already
-        present in an S3 bucket or available locally. If the clip already exists
-        in the S3 bucket and forced download is not specified, the function avoids
-        clip regeneration. Otherwise, it extracts a clip from the source video
-        starting from a determined offset, uploads the clip to the S3 bucket, and
-        updates the video metadata with the clip's accessible S3 URL.
-
-        Arguments:
-        video (Dict): A dictionary representing the video metadata, such as its ID
-            and other properties. Includes keys such as 'id' (str), 'mp4' (str, URL
-            or path to the video file), and potentially 'mp4_length' (float, the
-            video length in seconds).
-        duration (float): The desired length of the clip in seconds.
-        forcedownload (bool, optional): If True, forces re-download or re-generation
-            of the video clip, even when it already exists. Defaults to False.
-        offset (Union[str, float], optional): The starting point for the clip, in seconds.
-            If set to "auto", the function automatically calculates the offset as the
-            midpoint of the video minus half the clip duration. Defaults to "auto".
-
-        Returns:
-        Union[Dict, bool]: When successful, returns the updated video dictionary with
-            the 'mp4_clip' key containing the URL to the uploaded clip. If the process
-            fails, returns False.
-    """
     video_id = video["id"]
 
     video_object = f"{video_id}.mp4"
@@ -774,23 +650,6 @@ def generate_clip_and_write_to_s3(
 
 
 def lookup_video_overrides(video):
-    """
-    Looks up and applies override configurations to the given video object if
-    available. The function checks for the existence of a specific configuration
-    file and updates the video properties if corresponding overrides are found in
-    the file.
-
-    Arguments:
-        video (dict): A dictionary representing the video object. Must contain
-        an "id" key with a string value.
-
-    Returns:
-        dict: The updated video object with applied overrides, if any were found.
-
-    Raises:
-        KeyError: If "id" key is missing from the video dictionary.
-    """
-
     video_id = video["id"]
     OVERRIDES_CONFIG = "storage/config/clip_overrides.json"
     if os.path.exists(OVERRIDES_CONFIG):
@@ -804,22 +663,6 @@ def lookup_video_overrides(video):
 
 # START CLIPS MAIN
 def genClipsMain():
-    """
-    Process and manage video manifest files by generating clips, applying overrides, and updating or removing
-    manifest files accordingly. This function interacts with an S3 bucket, reads JSON manifest files, applies
-    optional overrides for clip offset and length, generates clips, and then updates the manifest file or
-    deletes it if the video does not exist.
-
-    Attributes:
-        CLIP_OFFSET (str): Key name for clip offset designation in the video manifest.
-        CLIP_LENGTH (str): Key name for clip length designation in the video manifest.
-
-        s3helper (S3Helper): Instance of the S3Helper class initialized with the bucket name to handle S3 operations.
-        manifest_folder (str): Name of the folder containing imported video manifest files.
-
-    Raises:
-        RuntimeError: Raised in case of errors when opening, reading, or processing the manifest files.
-    """
     CLIP_OFFSET = "clip_offset"
     CLIP_LENGTH = "clip_length"
 
@@ -842,9 +685,6 @@ def genClipsMain():
             print(" *", f"ERROR {fname}")
 
         else:
-            # look up in the config/offsets.json if there's an
-            # override for this video
-
             video = lookup_video_overrides(video)
 
             OFFSET = video[CLIP_OFFSET] if CLIP_OFFSET in video else "auto"
@@ -863,7 +703,6 @@ def genClipsMain():
                 os.remove(fname)
 
 
-# START MAIN
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="video downloader")
@@ -885,9 +724,12 @@ if __name__ == "__main__":
     if args.rm:
         rm_json_files(manifest_folder)
 
-    fetch_kvl(args, manifest_folder)  # should generate clip
-    fetch_kadist(args, manifest_folder)  # should generate clip
-    fetch_external(args, manifest_folder)  # should generate clip
     fetch_kviews(args, manifest_folder)  # should generate clip
+
+    fetch_kadist(args, manifest_folder)  # should generate clip
+
+    fetch_external(args, manifest_folder)  # should generate clip
+
+    fetch_kvl(args, manifest_folder)  # should generate clip
 
     clear_temporary_videos(TMP)
