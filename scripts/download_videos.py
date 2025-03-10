@@ -278,7 +278,8 @@ def fetch_kadist(args, manifest_folder: str):
                     print("Error Downloading")
                     print(str(e))
 
-    with open("config/kadist_videos.json") as f:
+    file_path = os.path.join("storage", "config", "kadist_videos.json")
+    with open(file_path) as f:
         videos = json.loads(f.read())
 
         for x in tqdm(videos):

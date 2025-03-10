@@ -78,8 +78,8 @@ VIDEO_SEARCH_ERRATA = [
 
 def get_external_videos():
     """get a list of youtube URLs, only the link is returned."""
-
-    with open("../../storage/config/external_videos.json") as f:
+    file_path = os.path.join("storage", "config", "external_videos.json")
+    with open(file_path) as f:
         return [x for x in set(json.loads(f.read()))]
 
 
