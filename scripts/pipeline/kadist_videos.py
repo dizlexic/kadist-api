@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import time
 from html import unescape
@@ -11,9 +12,8 @@ from tqdm import tqdm
 etl_headers = {}
 
 session = requests_cache.CachedSession(
-    cache_name="../../storage/caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="storage/caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after 7 days
-
 
 # This is literally scraping the html from the website, not the JSON so we aren't getting the new "links" fields (caption, etc)
 
@@ -88,10 +88,10 @@ def generate_kadist_video_list(pages=15):
                 soup = BeautifulSoup(html, "html.parser")
 
                 # remove unused tags
-                for elem in soup.findAll(["script", "aside"]):
+                for elem in soup.find_all(["script", "aside"]):
                     elem.extract()
 
-                for div in soup.findAll("div", {"class": "teaser-videos"}):
+                for div in soup.find_all("div", {"class": "teaser-videos"}):
 
                     url = div.select("a.teaser-content-title")[0]["href"]
 
@@ -129,7 +129,7 @@ def generate_kadist_video_list(pages=15):
                         try:
                             src = soup.select("iframe")[0]["src"]
                         except IndexError:
-                            print(f"No video found for {url} - skipping")
+                            print(f"No video for {url}")
                             continue
 
                         if "vimeo" in src:
@@ -155,22 +155,19 @@ def generate_kadist_video_list(pages=15):
                                                 "link"
                                             )[0]["href"]
                                             videos.append(video)
-
             else:
-                print("failed request", r.status_code)
-
                 if r.status_code == 404:
-                    print('url:', url)
+                    print(f" * no more pages in region {region} after page {current_page - 1}")
                     exists = False
-
             current_page += 1
-
         # Increment the page counter
     if videos:
-        output_file = "../../storage/config/kadist_videos.json"
+        output_file = os.path.join("storage", "config", "kadist_videos.json")
         with open(output_file, "w") as f:
             f.write(json.dumps(videos, indent=2, ensure_ascii=False))
             print(f" * written {len(videos)} to {output_file}")
+    else:
+        print(" * no videos found")
 
 if __name__ == "__main__":
     print(" *", "starting kadist_videos.py")
