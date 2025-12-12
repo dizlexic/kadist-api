@@ -20,10 +20,10 @@ from scripts.pipeline.external_videos import get_external_videos
 from scripts.pipeline.kview_videos import get_kview_videos
 
 load_dotenv()
-config = dotenv_values("../.env")
+config = dotenv_values(f'{os.getcwd()}/.env')
 
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/tmp')
-
+COOKIES = f'{os.getcwd()}/cookies.txt'
 requests_cache.CachedSession(
     cache_name="storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
 )  # minutes
@@ -248,6 +248,7 @@ def fetch_kadist(args, manifest_folder: str):
                 "noplaylist": True,
                 "quiet": args.verbose,
                 "progress_hooks": [self.callback],
+                "cookies": COOKIES
             }
 
             with YoutubeDL(ydl_opts) as ydl:
@@ -334,6 +335,7 @@ def fetch_external(args, manifest_folder):
                 "noplaylist": True,
                 "quiet": args.verbose,
                 "progress_hooks": [self.callback],
+                "cookies": COOKIES,
             }
 
             with YoutubeDL(ydl_opts) as ydl:

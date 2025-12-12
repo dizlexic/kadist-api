@@ -370,7 +370,8 @@ def fetch_kadist(args, manifest_folder: str):
 
                     dest_file = f"{TMP}/{video_id}.mp4"
 
-                    if s3helper.file_exists(dest_file):
+                    # Check S3 by key, not local path
+                    if s3helper.file_exists(f"{video_id}.mp4"):
                         write_manifest(
                             self.video_type, self.manifest, self.manifest_folder
                         )
@@ -484,7 +485,8 @@ def fetch_external(args, manifest_folder):
 
                     dest_file = f"{TMP}/{video_id}.mp4"
 
-                    if s3helper.file_exists(dest_file):
+                    # Check S3 by key, not local path
+                    if s3helper.file_exists(f"{video_id}.mp4"):
                         write_manifest(
                             self.video_type, self.manifest, self.manifest_folder
                         )

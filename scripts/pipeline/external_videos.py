@@ -11,8 +11,8 @@ from youtubesearchpython import VideosSearch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-requests_cache.CachedSession(
-    cache_name="../../storage/caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+session = requests_cache.CachedSession(
+    cache_name="storage/caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after in seconds
 
 
@@ -97,32 +97,39 @@ def search_youtube_by_keyword(
                     [i for i in result["viewCount"]["text"] if i.isdigit()]
                 )
                 view_count = int(view_count_chars) if view_count_chars else 0
-                if view_count >= view_count:
+                if view_count >= min_view_count:
                     return result["link"]
 
 
 def generate_external_video_list(min_view_count, include_search=True):
     """For each Kadist artist search Youtube for video"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     arpedia_url = "https://arpedia.herokuapp.com/arpedia/v1/kadist_artists?only_include_artist_names=true"
-    r = requests.get(arpedia_url)
+    r = session.get(arpedia_url)
     if r.status_code == requests.codes.ok:
         kadist_artists = r.json()["result"]
 
-        videos = VIDEO_DEFAULT_LINKS
+        videos = list(VIDEO_DEFAULT_LINKS)
 
         if include_search:
-            all_artists = set(kadist_artists + VIDEO_SEARCH_ERRATA)
+            all_artists = list(set(kadist_artists + VIDEO_SEARCH_ERRATA))
 
-            # reduced set, remove for all yt content
-            # all_artists = set(VIDEO_SEARCH_ERRATA)
+            def worker(artist_name: str):
+                # gentle jitter per request to be polite
+                time.sleep(0.05 + random.randint(5, 25) / 100)
+                try:
+                    return search_youtube_by_keyword(artist_name, min_view_count)
+                except Exception as e:
+                    return None
 
-            for artist_name in tqdm(all_artists):
-
-                time.sleep(0.1 + random.randint(10, 35) / 100)
-
-                video_link = search_youtube_by_keyword(artist_name, min_view_count)
-                if video_link and video_link not in videos:
-                    videos.append(video_link)
+            max_workers = min(6, max(1, os.cpu_count() or 2))
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futures = {ex.submit(worker, name): name for name in all_artists}
+                for fut in tqdm(as_completed(futures), total=len(futures)):
+                    link = fut.result()
+                    if link and link not in videos:
+                        videos.append(link)
 
         if videos:
             try:
