@@ -18,7 +18,7 @@ bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
 
 def _clipify(
         video_id: str, mp4: str, offset: float, duration: float, forcedownload: bool = False
-) -> str:
+) -> str | bool:
     dest_file = f"{TMP}/{video_id}_clip.mp4"
     if not forcedownload and os.path.exists(dest_file):
         return dest_file
