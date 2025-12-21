@@ -2,9 +2,9 @@
 import argparse
 import base64
 from io import BytesIO
+import os
 from tempfile import NamedTemporaryFile
 from typing import List, Sequence
-
 import PIL
 import requests
 import requests_cache
@@ -43,10 +43,21 @@ def f7(seq: Sequence[str]) -> List[str]:
 
 def download_video_file(url):
     print("download_video_file", url)
+    if not url:
+        return None
+
+    # Extract extension safely, default to mp4 if split fails or is missing
+    try:
+        ext = url.split('.')[-1].split('?')[0]  # Handle query params
+        if len(ext) > 4 or not ext:
+            ext = "mp4"
+    except (AttributeError, IndexError):
+        ext = "mp4"
+
     with requests.get(url, stream=True, headers={"referer": "http://kadist.org/"}) as r:
         r.raise_for_status()
         with NamedTemporaryFile(
-                prefix="video_", suffix=f".{url.split('.')[-1]}", delete=False
+                prefix="video_", suffix=f".{ext}", delete=False
         ) as f:
             for chunk in r.iter_content(chunk_size=65536):
                 f.write(chunk)

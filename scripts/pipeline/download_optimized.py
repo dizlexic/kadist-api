@@ -95,8 +95,9 @@ def generate_tags(text: str) -> List[str]:
 
 
 def generate_abbreviated_description(description: str) -> str:
+    if not description:
+        return ""
     return description.split(".")[0]
-
 
 def download_video_file_to_mp4(url: str):
     dest_file = f"{TMP}/{generate_id(url)}.mp4"
@@ -104,13 +105,37 @@ def download_video_file_to_mp4(url: str):
         print("local file exits serving it back!")
         return dest_file
     else:
-        print("no local file attempting to download")
-        cmd = f"ffmpeg -y -nostats -loglevel error -headers 'Referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
-        call = os.system(cmd)
-        if call == 0:
-            return dest_file
-        else:
-            print("could not download file", cmd)
+        print(f"no local file attempting to download: {url}")
+        # Optimization: Use ffmpeg with specific HLS options and a clear error level.
+        # -headers: Required for S3/HLS access if Referer is checked.
+        # -i: Input URL (works for both MP4 and M3U8).
+        # -c copy: Re-mux instead of re-encode to save CPU and time.
+        # -bsf:a aac_adtstoasc: Required when muxing HLS AAC into MP4.
+        # -map 0:p:1?: Safely attempts to map the second program/stream if available.
+
+        referer = "https://kadist.org/"
+        cmd = (
+            f'ffmpeg -y -hide_banner -loglevel error '
+            f'-headers "Referer: {referer}" '
+            f'-i "{url}" '
+            f'-c copy -bsf:a aac_adtstoasc '
+            f'-movflags +faststart '
+            f'"{dest_file}"'
+        )
+
+        try:
+            call = os.system(cmd)
+            if call == 0 and os.path.exists(dest_file) and os.path.getsize(dest_file) > 0:
+                return dest_file
+            else:
+                if os.path.exists(dest_file):
+                    os.remove(dest_file)
+                print("could not download or mux file", cmd)
+                return False
+        except Exception as e:
+            print(f"ffmpeg execution failed: {e}")
+            if os.path.exists(dest_file):
+                os.remove(dest_file)
             return False
 
 
@@ -340,6 +365,8 @@ def fetch_kadist(args, manifest_folder: str):
                 self.save_video_create_manifest(d["filename"])
 
         def process_description(self, s):
+            if not s:
+                return ""
             return s.split("\n")[0].strip()
 
         def format_upload_date(self, s):
@@ -429,6 +456,8 @@ def fetch_external(args, manifest_folder):
                 self.save_video_create_manifest(d["filename"])
 
         def process_description(self, s):
+            if not s:
+                return ""
             return s.split("\n")[0].strip()
 
         def format_upload_date(self, s):
@@ -454,7 +483,7 @@ def fetch_external(args, manifest_folder):
                     tags = info_dict.get("tags", [])
                     image_url = info_dict.get("thumbnail", None)
 
-                    if description.startswith("Enjoy the videos"):
+                    if description and description.startswith("Enjoy the videos"):
                         description = ""
 
                     self.manifest = {
