@@ -24,11 +24,14 @@ from lib.s3helper import S3Helper
 from scripts.pipeline.external_videos import get_external_videos
 from scripts.pipeline.kview_videos import get_kview_videos
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ensure the project root is in the python path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 load_dotenv()
 
-config = dotenv_values("../../.env")
+config = dotenv_values(os.path.join(project_root, ".env"))
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/storage/tmp')
 bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
 source_ip = os.getenv("KAPI_SOURCE_IP")
