@@ -2,6 +2,7 @@ import json
 import re
 import time
 from html import unescape
+from pathlib import Path
 
 import requests
 import requests_cache
@@ -11,7 +12,7 @@ from tqdm import tqdm
 etl_headers = {}
 
 session = requests_cache.CachedSession(
-    cache_name="../../storage/caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="storage/caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after 7 days
 
 

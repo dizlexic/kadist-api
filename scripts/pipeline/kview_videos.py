@@ -11,7 +11,7 @@ from tqdm import tqdm
 etl_headers = {}
 
 session = requests_cache.CachedSession(
-    cache_name="../../storage/caches/kview_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+    cache_name="storage/caches/kview_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
 )  # expire_after 7 days
 
 

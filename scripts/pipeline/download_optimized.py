@@ -36,7 +36,7 @@ source_url = os.getenv("KAPI_SOURCE_URL")
 
 
 requests_cache.CachedSession(
-    cache_name="../../storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
+    cache_name="storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
 )  # minutes
 
 s3helper = S3Helper(bucket_name)
@@ -353,6 +353,7 @@ def fetch_kadist(args, manifest_folder: str):
                 "noplaylist": True,
                 "verbose": True,
                 "progress_hooks": [self.callback],
+		"cookies": f'{os.getcwd()}/cookies.txt'
             }
 
             with YoutubeDL(ydl_opts) as ydl:
