@@ -18,6 +18,11 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 from yt_dlp import YoutubeDL
 
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from lib.app_utils import clear_temporary_videos
 from lib.dev_utils import image_url_to_data_uri
 from lib.s3helper import S3Helper
@@ -25,9 +30,6 @@ from scripts.pipeline.external_videos import get_external_videos
 from scripts.pipeline.kview_videos import get_kview_videos
 
 # Ensure the project root is in the python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 
 load_dotenv()
 
