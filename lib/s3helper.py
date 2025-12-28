@@ -33,7 +33,6 @@ class S3Helper:
 
     def put_file(self, name: str, abspath: str, only_if_modified: bool = True) -> str:
         obj = self.s3.Object(self.bucket.name, name)
-
         if only_if_modified:
             if os.path.exists(abspath):
                 size_on_s3 = self.file_size(name)
@@ -48,13 +47,13 @@ class S3Helper:
 
         print(" *", f"putting {name} on S3 from {abspath}...")
         obj.upload_file(abspath)
-        obj.Acl().put(ACL="public-read")
+        # obj.Acl().put(ACL="public-read")
 
     def write_json(self, name: str, obj: Union[Dict, Sequence]) -> int:
         obj_data = json.dumps(obj, indent=2)
         obj = self.s3.Object(self.bucket.name, name)
-
-        obj.put(Body=obj_data, ACL="public-read", ContentType="application/json")
+        obj.put(Body=obj_data, ContentType="application/json")
+        # obj.put(Body=obj_data, ACL="public-read", ContentType="application/json")
         return obj.content_length
 
     def read_json(self, name: str) -> Union[Dict, Sequence]:

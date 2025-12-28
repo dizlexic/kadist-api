@@ -48,13 +48,9 @@ def scrape_wordpress_page(page_id: str) -> Dict[str, Union[str, List[Dict[str, s
         }
 
     soup = BeautifulSoup(r.content, "html.parser")
-
     title_tag = soup.find("h1") or soup.find("title")
-    description_tag = soup.find("meta", {"name": "description"})
-    og_desc = soup.find("meta", {"property": "og:description"})
-    desc_text = description_tag.get("content", "") if description_tag else ""
-    if not desc_text and og_desc:
-        desc_text = og_desc.get("content", "")
+    description = soup.find(class_="article-body").text.strip()
+    abbreviated_description = description[:200] + "..." if description else ""
 
     # Prefer og:image then first <img>
     images: List[Dict[str, str]] = []
@@ -93,13 +89,21 @@ def scrape_wordpress_page(page_id: str) -> Dict[str, Union[str, List[Dict[str, s
         if src and src.startswith("http"):
             videos.append({"url": src, "type": "iframe"})
 
+
+    try:
+        image_url = images[1]["url"]
+    except IndexError:
+        image_url = images[0]["url"]
+
     return {
+        "image_url": image_url,
         "permalink": url,
         "title": _safe_text(title_tag),
-        "description": desc_text,
+        "description": description,
         "tags": tags,
         "images": images,
         "videos": videos,
+        "abbreviated_description": abbreviated_description,
     }
 
 
@@ -142,6 +146,8 @@ def build_video_entry(row: Dict[str, str]) -> Optional[Dict[str, Union[str, Sequ
         "description": scraped.get("description", ""),
         "tags": scraped.get("tags", []),
         "images": scraped.get("images", []),
+        "image_url": scraped.get("image_url", ""),
+        "abbreviated_description": scraped.get("abbreviated_description", ""),
     }
 
     # Prefer CSV video_url, fall back to scraped videos
@@ -186,6 +192,14 @@ def get_external_videos() -> List[str]:
             if url:
                 urls.append(url)
     return urls
+
+def get_external_video_data() -> List[Dict]:
+    """Return list of video URLs for downloader compatibility."""
+    if not os.path.exists(OUTPUT_PATH):
+        return []
+    with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
+        payload = json.loads(f.read())
+    return payload
 
 
 def generate_external_video_list(csv_path: str = CSV_PATH) -> List[Dict]:
