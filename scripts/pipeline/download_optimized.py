@@ -385,7 +385,10 @@ def fetch_kadist(args, manifest_folder: str):
                 "noplaylist": True,
                 "verbose": True,
                 "progress_hooks": [self.callback],
-                "cookies": f'{os.getcwd()}/cookies.txt'
+                "cookies": f'{os.getcwd()}/cookies.txt',
+                "http_headers": {
+                    "User-Agent": "AppleCoreMedia/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+                }
             }
 
             with YoutubeDL(ydl_opts) as ydl:
@@ -477,7 +480,7 @@ def fetch_external(args, manifest_folder):
                 "verbose": True,
                 "progress_hooks": [self.callback],
             }
-
+            # User Agent Missing?
             with YoutubeDL(ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(url, download=False)
