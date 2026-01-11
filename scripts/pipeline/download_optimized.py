@@ -26,7 +26,7 @@ if project_root not in sys.path:
 from lib.app_utils import clear_temporary_videos
 from lib.dev_utils import image_url_to_data_uri
 from lib.s3helper import S3Helper
-from scripts.pipeline.external_videos import get_external_videos
+from scripts.pipeline.external_videos import get_external_video_data
 from scripts.pipeline.kview_videos import get_kview_videos
 
 # Ensure the project root is in the python path
@@ -35,7 +35,7 @@ load_dotenv()
 
 config = dotenv_values(os.path.join(project_root, ".env"))
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/storage/tmp')
-bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
+bucket_name = os.getenv("S3_BUCKET_NAME", "ktv")
 source_ip = os.getenv("KAPI_SOURCE_IP")
 source_url = os.getenv("KAPI_SOURCE_URL")
 
@@ -469,9 +469,14 @@ def fetch_external(args, manifest_folder):
             return s.split("\n")[0].strip()
 
         def format_upload_date(self, s):
-            return datetime.strptime(s, "%Y%m%d").strftime("%m/%d/%Y")
+            if not s:
+                return datetime.today().strftime("%m/%d/%Y")
+            try:
+                return datetime.strptime(s, "%Y%m%d").strftime("%m/%d/%Y")
+            except (ValueError, TypeError):
+                return datetime.today().strftime("%m/%d/%Y")
 
-        def download_video(self, url: str):
+        def download_video(self, url: str, extraInfo: dict = {}):
 
             ydl_opts = {
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
@@ -479,20 +484,29 @@ def fetch_external(args, manifest_folder):
                 "noplaylist": True,
                 "verbose": True,
                 "progress_hooks": [self.callback],
+                "http_headers": {
+                    "User-Agent": "AppleCoreMedia/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+                }
             }
             # User Agent Missing?
             with YoutubeDL(ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(url, download=False)
-                    video_title = info_dict.get("title", None)
+                    video_title = extraInfo.get("title", info_dict.get("title", ""))
                     view_count = info_dict.get("view_count", 0)
-                    description = info_dict.get("description", None)
+                    description = extraInfo.get("description", '')
                     upload_date = info_dict.get("upload_date", None)
-                    tags = info_dict.get("tags", [])
-                    image_url = info_dict.get("thumbnail", None)
+                    tags = generate_tags(description) if description else []
+                    image_url = extraInfo.get("image_url", '')
+                    collection = extraInfo.get("collection", None)
+                    images = extraInfo.get("images", [])
+                    permalink = extraInfo.get("permalink", None)
 
-                    if description and description.startswith("Enjoy the videos"):
-                        description = ""
+                    if isinstance(image_url, dict):
+                        image_url = image_url.get("url", None)
+                    if collection:
+                        tags.append(collection)
+
 
                     self.manifest = {
                         "title": video_title,
@@ -505,6 +519,9 @@ def fetch_external(args, manifest_folder):
                         "image_url": image_url,
                         "tags": tags,
                         "region": "All",
+                        "images": images,
+                        "collection": collection,
+                        "permalink": permalink
                     }
 
                     video_id = generate_id(url)
@@ -518,7 +535,7 @@ def fetch_external(args, manifest_folder):
 
                     self.manifest["tags"] += generate_tags(self.manifest["description"])
 
-                    self.manifest["permalink"] = cloudflare_url(url)
+                    self.manifest["permalink"] = permalink
 
                     dest_file = f"{TMP}/{video_id}.mp4"
 
@@ -539,11 +556,15 @@ def fetch_external(args, manifest_folder):
     if args.rm:
         s3helper.rm_files(args.rm)
     else:
-        external_videos = get_external_videos()
+        external_videos = get_external_video_data()
         print(" *", f"fetch_external, processing {len(external_videos)} videos")
 
-        for url in tqdm(external_videos):
-            YoutubeDownloader(manifest_folder).download_video(url)
+        try:
+            for data in tqdm(external_videos):
+                YoutubeDownloader(manifest_folder).download_video(data["video_url"], data)
+        except KeyboardInterrupt:
+            print("\n * Interrupted by user. Cleaning up and exiting fetch_external...")
+            
     print(" *", "fetch_external completed")
 
 def fetch_kviews(args, manifest_folder):
