@@ -96,7 +96,11 @@ class S3Helper:
             return obj.content_length
         except self.s3.meta.client.exceptions.NoSuchKey:
             return -1
-
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                return -1
+            else:
+                raise
     def list_files(self):
         if not self.cached_bucket_list:
             self.cached_bucket_list = [
