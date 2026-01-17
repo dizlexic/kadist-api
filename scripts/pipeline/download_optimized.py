@@ -320,14 +320,16 @@ def fetch_kvl(args, manifest_folder: str):
                     "work_details": work_details,
                     "mp4_length": video_duration,
                 }
-                write_manifest("kvl", video, manifest_folder)
+                
                 clip_duration = 20.0
                 print("creating new clip for", video_id)
                 clip_manifest = generate_clip_and_write_to_s3(video, clip_duration)
                 if clip_manifest:
-                    write_manifest("kvl", clip_manifest, manifest_folder)
+                    video.update(clip_manifest)
                 else:
                     print("Failed to generate clip")
+
+                write_manifest("kvl", video, manifest_folder)
 
                 vfile = f"{TMP}/{video_id}.mp4"
                 if os.path.exists(vfile):
@@ -352,19 +354,26 @@ def fetch_kadist(args, manifest_folder: str):
         # START VIDEO REMOVAL
         def save_video_create_manifest(self, dest_file):
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
-            clipManifest = self.generate_save_clip()
+            
+            # Use a copy of manifest to avoid in-place modification issues if any
+            temp_video = self.manifest.copy()
+            updated_video = self.generate_save_clip(temp_video)
+            if updated_video:
+                self.manifest.update(updated_video)
+            else:
+                print(" *", "No clip manifest found or generation failed", dest_file)
+
             if os.path.exists(dest_file):
                 print(f" *", f"removing {dest_file}")
                 os.remove(dest_file)
-            write_manifest(self.video_type, self.manifest, self.manifest_folder)
-            if clipManifest:
-                write_manifest("clip", self.manifest, self.manifest_folder)
-            else:
-                print(" *", "No clip manifest found", dest_file)
 
-        def generate_save_clip(self):
-            print("yt dl ")
-            return generate_clip_and_write_to_s3(self.manifest, 20.0)
+            write_manifest(self.video_type, self.manifest, self.manifest_folder)
+
+        def generate_save_clip(self, video_dict=None):
+            if video_dict is None:
+                video_dict = self.manifest
+            print("generating clip...")
+            return generate_clip_and_write_to_s3(video_dict, 20.0)
         def callback(self, d):
             if d["status"] == "finished":
                 self.save_video_create_manifest(d["filename"])
@@ -407,6 +416,12 @@ def fetch_kadist(args, manifest_folder: str):
 
                     # Check S3 by key, not local path
                     if s3helper.file_exists(f"{video_id}.mp4"):
+                        duration = 20.0
+                        temp_video = self.manifest.copy()
+                        updated_video = generate_clip_and_write_to_s3(temp_video, duration)
+                        if updated_video:
+                            self.manifest.update(updated_video)
+                        
                         write_manifest(
                             self.video_type, self.manifest, self.manifest_folder
                         )
@@ -452,16 +467,26 @@ def fetch_external(args, manifest_folder):
             self.video_type = "external"
 
         def save_video_create_manifest(self, dest_file):
+            # Ensure we have a valid video dictionary
+            if not hasattr(self, 'manifest') or not self.manifest:
+                print("Error: self.manifest is not initialized")
+                return
+
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
             duration = 20.0
-            temp_manifest = generate_clip_and_write_to_s3(self.manifest, duration)
-            if temp_manifest:
-                self.manifest.update(temp_manifest)
-                if os.path.exists(dest_file):
-                    write_manifest(self.video_type, self.manifest, self.manifest_folder)
+            
+            # Use a copy of manifest to avoid in-place modification issues if any
+            temp_video = self.manifest.copy()
+            updated_video = generate_clip_and_write_to_s3(temp_video, duration)
+            if updated_video:
+                self.manifest.update(updated_video)
             else:
-                print("No clip manifest found not writing update")
-            os.remove(dest_file)
+                print("No clip manifest found or generation failed")
+            
+            write_manifest(self.video_type, self.manifest, self.manifest_folder)
+            
+            if os.path.exists(dest_file):
+                os.remove(dest_file)
 
         def callback(self, d):
             if d["status"] == "finished":
@@ -545,6 +570,11 @@ def fetch_external(args, manifest_folder):
 
                     # Check S3 by key, not local path
                     if s3helper.file_exists(f"{video_id}.mp4"):
+                        duration = 20.0
+                        temp_manifest = generate_clip_and_write_to_s3(self.manifest, duration)
+                        if temp_manifest:
+                            self.manifest.update(temp_manifest)
+                        
                         write_manifest(
                             self.video_type, self.manifest, self.manifest_folder
                         )
@@ -597,14 +627,15 @@ def fetch_kviews(args, manifest_folder):
                 "region": "All",
                 "mp4_length": video_duration,
             }
-            write_manifest(video_type, manifest, manifest_folder)
             clip_duration = 20.0
             print("creating new clip for", video_id, manifest["mp4"], manifest["mp4_length"])
             clip_manifest = generate_clip_and_write_to_s3(manifest, clip_duration)
             if clip_manifest:
-                write_manifest("kvl", clip_manifest, manifest_folder)
+                manifest.update(clip_manifest)
             else:
                 print("Failed to generate clip")
+
+            write_manifest(video_type, manifest, manifest_folder)
 
             vfile = f"{TMP}/{video_id}.mp4"
             if os.path.exists(vfile):
@@ -619,12 +650,8 @@ def fetch_kviews(args, manifest_folder):
 # START GENERATE CLIPS FUNCTIONS
 def _clipify(
         video_id: str, mp4: str, offset: float, duration: float, forcedownload: bool = False
-) -> str:
+) -> str | bool:
     dest_file = f"{TMP}/{video_id}_clip.mp4"
-    source_file = f"{TMP}/{video_id}.mp4"
-    if not os.path.exists(source_file):
-        print('source file doesnt exist :(')
-
     if not forcedownload and os.path.exists(dest_file):
         return dest_file
     else:
@@ -668,12 +695,12 @@ def generate_clip_and_write_to_s3(
         print('video clip exists', video_id)
         forcedownload = forcedownload or offset != "auto"
 
-        if "mp4_length" not in video:
+        if "mp4_length" not in video or not video["mp4_length"]:
             print('no mp4_length')
             video_length = _get_video_length(video_id, mp4)
             if video_length:
                 print('video length', video_length)
-                video["mp4_length"] = video.get("mp4_length", video_length)
+                video["mp4_length"] = video_length
             else:
                 print(" *", f"ERROR: could not get video length for {video_id}")
                 return False
@@ -708,6 +735,10 @@ def generate_clip_and_write_to_s3(
                 video[
                     "mp4_clip"
                 ] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
+            else:
+                # If clip generation failed, we still want to keep existing mp4_clip if it exists
+                if clip_exists:
+                     video["mp4_clip"] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
 
         return video
     print("clip gen failed with no video exists?")

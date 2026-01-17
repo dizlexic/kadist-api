@@ -12,7 +12,7 @@ from lib.s3helper import S3Helper
 
 load_dotenv()
 
-TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/tmp')
+TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/storage/tmp')
 bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
 
 
@@ -46,6 +46,7 @@ def _get_video_length(video_id: str, mp4: str) -> float:
 def generate_clip_and_write_to_s3(
         video: Dict, duration: float, forcedownload: bool = False, offset="auto"
 ):
+    s3helper = S3Helper(bucket_name)
     video_id, mp4 = video["id"], video["mp4"]
 
     video_object = f"{video_id}.mp4"
@@ -53,23 +54,29 @@ def generate_clip_and_write_to_s3(
 
     video_exists = s3helper.file_exists(video_object)
     clip_exists = s3helper.file_exists(clip_object)
+    
+    local_file = f"{TMP}/{video_id}.mp4"
+    local_exists = os.path.exists(local_file)
 
-    if video_exists:
+    if local_exists:
+        mp4 = local_file
+
+    if video_exists or local_exists:
 
         forcedownload = forcedownload or offset != "auto"
 
-        if "mp4_length" not in video:
+        if "mp4_length" not in video or not video["mp4_length"]:
             video_length = _get_video_length(video_id, mp4)
             if video_length:
-                video["mp4_length"] = video.get("mp4_length", video_length)
+                video["mp4_length"] = video_length
             else:
                 print(" *", f"ERROR: could not get video length for {video_id}")
                 return False
 
-        length = video["mp4_length"] if video["mp4_length"] else 0
-        if float(length) < 1:
-            print(" *", f"ERROR: video length is less than 1 second for {video_id}")
-            return False
+        # length = video["mp4_length"] if video["mp4_length"] else 0
+        # if float(length) < 1:
+        #     print(" *", f"ERROR: video length is less than 1 second for {video_id}")
+        #     return False
         # process offset
 
         actual_offset = 0
@@ -95,7 +102,6 @@ def generate_clip_and_write_to_s3(
                 print(" *", f"uploaded {clip_object}")
                 print(" *", f"removing {local_clip_file}")
                 os.remove(local_clip_file)
-                os.remove(local_clip_file)
                 video[
                     "mp4_clip"
                 ] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
@@ -109,7 +115,7 @@ def lookup_video_overrides(video):
     """potentially update the dict with any clip overrides (CLIP_OFFSET/CLIP_LENGTH)" \""""
 
     video_id = video["id"]
-    OVERRIDES_CONFIG = "config/clip_overrides.json"
+    OVERRIDES_CONFIG = "storage/config/clip_overrides.json"
     if os.path.exists(OVERRIDES_CONFIG):
         with open(OVERRIDES_CONFIG, encoding="utf-8") as f:
             overrides = json.loads(f.read())
@@ -126,7 +132,7 @@ if __name__ == "__main__":
 
     s3helper = S3Helper(bucket_name)
 
-    manifest_folder = "imported_videos"
+    manifest_folder = "storage/imported_videos"
 
     print(" *", f"globbing {manifest_folder}...")
     manifest_files = glob.glob(f"{manifest_folder}/*.json")
