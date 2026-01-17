@@ -454,10 +454,14 @@ def fetch_external(args, manifest_folder):
         def save_video_create_manifest(self, dest_file):
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
             duration = 20.0
-            generate_clip_and_write_to_s3(self.manifest, duration)
-            if os.path.exists(dest_file):
-                os.remove(dest_file)
-            write_manifest(self.video_type, self.manifest, self.manifest_folder)
+            temp_manifest = generate_clip_and_write_to_s3(self.manifest, duration)
+            if temp_manifest:
+                self.manifest.update(temp_manifest)
+                if os.path.exists(dest_file):
+                    write_manifest(self.video_type, self.manifest, self.manifest_folder)
+            else:
+                print("No clip manifest found not writing update")
+            os.remove(dest_file)
 
         def callback(self, d):
             if d["status"] == "finished":
