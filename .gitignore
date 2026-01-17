@@ -1,6 +1,8 @@
 # Environments
 .env
 .venv
+.env.*
+!.env.example
 env/
 venv/
 ENV/
@@ -21,3 +23,4 @@ venv.bak/
 !**/.keep
 
 storage/tmp/*
+**/__pycache__
