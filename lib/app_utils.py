@@ -8,7 +8,41 @@ import time
 from collections import Counter, defaultdict
 from typing import Dict, List, Sequence
 
+import requests
+import requests_cache
+import urllib3
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 from .s3helper import S3Helper
+
+urllib3.disable_warnings()
+
+
+def get_robust_session(cache_name=None, expire_after=None):
+    """
+    Returns a requests.Session (or CachedSession) with a retry strategy.
+    """
+    if cache_name:
+        session = requests_cache.CachedSession(
+            cache_name=cache_name, expire_after=expire_after
+        )
+    else:
+        session = requests.Session()
+
+    # Retry on various network-related errors and specific status codes
+    retry_strategy = Retry(
+        total=5,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "POST", "OPTIONS"],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
 
 s3 = S3Helper("arpedia-dev")
 

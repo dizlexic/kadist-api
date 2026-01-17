@@ -11,12 +11,14 @@ import requests_cache
 import urllib3
 from PIL import Image, ImageFile
 
+from .app_utils import get_robust_session
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 urllib3.disable_warnings()
 
-requests_cache.CachedSession(
-    cache_name="storage/caches/poster_cache", backend="sqlite", expire_after=60 * 96
+session = get_robust_session(
+    cache_name="storage/caches/poster_cache", expire_after=60 * 96
 )  # minutes
 
 
@@ -54,7 +56,7 @@ def download_video_file(url):
     except (AttributeError, IndexError):
         ext = "mp4"
 
-    with requests.get(url, stream=True, headers={"referer": "http://kadist.org/"}) as r:
+    with session.get(url, stream=True, headers={"referer": "http://kadist.org/"}) as r:
         r.raise_for_status()
         with NamedTemporaryFile(
                 prefix="video_", suffix=f".{ext}", delete=False
@@ -67,7 +69,7 @@ def download_video_file(url):
 def image_url_to_data_uri(imgurl: str):
     max_size = 400, 400
     try:
-        with requests.get(imgurl.strip(), timeout=60, verify=False, stream=True) as r:
+        with session.get(imgurl.strip(), timeout=60, verify=False, stream=True) as r:
             r.raise_for_status()  # Raises HTTPError if the HTTP request failed
 
             buffer = BytesIO()

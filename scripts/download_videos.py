@@ -4,10 +4,19 @@ import argparse
 import hashlib
 import json
 import os
+import sys
 from datetime import datetime
 from typing import Dict, List
 
 import requests
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from lib.app_utils import get_robust_session
+
+session = get_robust_session()
 import requests_cache
 import yake
 from dotenv import load_dotenv, dotenv_values
@@ -24,9 +33,7 @@ config = dotenv_values(f'{os.getcwd()}/.env')
 
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/tmp')
 COOKIES = f'{os.getcwd()}/cookies.txt'
-requests_cache.CachedSession(
-    cache_name="storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
-)  # minutes
+# minutes
 
 bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
 
@@ -47,7 +54,7 @@ def rm_json_files(folder: str):
 
 
 def url_exists(url):
-    r = requests.head(url)
+    r = session.head(url)
     return r.status_code == 200
 
 
@@ -176,14 +183,14 @@ def fetch_kvl(args, manifest_folder: str):
 
     url = "https://arpedia.herokuapp.com/arpedia/v1/not_null_search?count=1500"
 
-    r = requests.post(url, json=payload)
+    r = session.post(url, json=payload)
     if r.status_code == requests.codes.ok:
         for x in tqdm(r.json()["results"]):
             url = x["external_key"]
             url = url.replace('https://kadist.org', source_ip)
             url = url.replace(source_url, source_ip)
             print(f"fetch_kvl::fetching: {url}")
-            r = requests.get(url)
+            r = session.get(url)
             work_details = {}
             if r.status_code == requests.codes.ok:
                 work_details = r.json()

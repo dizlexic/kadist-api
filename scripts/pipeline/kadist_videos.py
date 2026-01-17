@@ -1,18 +1,24 @@
 import json
 import os
 import re
+import sys
 import time
 from html import unescape
 
 import requests
-import requests_cache
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from lib.app_utils import get_robust_session
+
 etl_headers = {}
 
-session = requests_cache.CachedSession(
-    cache_name="storage/caches/kadist_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
+session = get_robust_session(
+    cache_name="storage/caches/kadist_cache", expire_after=60 * 60 * 24 * 7
 )  # expire_after 7 days
 
 # This is literally scraping the html from the website, not the JSON so we aren't getting the new "links" fields (caption, etc)

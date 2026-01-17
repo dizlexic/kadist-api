@@ -5,6 +5,14 @@ import os
 import sys
 
 import requests
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from lib.app_utils import get_robust_session
+
+session = get_robust_session()
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
@@ -55,7 +63,7 @@ def get_wordpress_url(page_id):
 def scrape_wordpress_page(url):
     """Scrape WordPress page and extract metadata."""
     try:
-        response = requests.get(url, timeout=30)
+        response = session.get(url, timeout=30)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
 

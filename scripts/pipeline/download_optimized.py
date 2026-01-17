@@ -23,7 +23,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from lib.app_utils import clear_temporary_videos
+from lib.app_utils import clear_temporary_videos, get_robust_session
 from lib.dev_utils import image_url_to_data_uri
 from lib.s3helper import S3Helper
 from scripts.pipeline.external_videos import get_external_video_data
@@ -40,8 +40,8 @@ source_ip = os.getenv("KAPI_SOURCE_IP")
 source_url = os.getenv("KAPI_SOURCE_URL")
 
 
-requests_cache.CachedSession(
-    cache_name="storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
+session = get_robust_session(
+    cache_name="storage/caches/kvl_cache", expire_after=60 * 96
 )  # minutes
 
 s3helper = S3Helper(bucket_name)
@@ -60,7 +60,7 @@ def rm_json_files(folder: str):
 
 def url_exists(url):
     try:
-        r = requests.head(url, allow_redirects=True, timeout=10)
+        r = session.head(url, allow_redirects=True, timeout=10)
         return r.status_code == 200
     except requests.RequestException:
         return False
@@ -281,7 +281,7 @@ def fetch_kvl(args, manifest_folder: str):
 
     url = "https://arpedia.herokuapp.com/arpedia/v1/not_null_search?count=1500"
 
-    r = requests.post(url, json=payload)
+    r = session.post(url, json=payload)
     if r.status_code == requests.codes.ok:
         for x in tqdm(r.json()["results"]):
             url = x["external_key"]
@@ -290,8 +290,7 @@ def fetch_kvl(args, manifest_folder: str):
                 continue
             url = cloudflare_url(url)
             print(f"fetch_kvl::fetching: {url}")
-            req = requests.get(url)
-            work_details = {}
+            req = session.get(url)
             if req.status_code == requests.codes.ok:
                 work_details = req.json()
             # grab the video from kadist and put it on arpedia's bucket
