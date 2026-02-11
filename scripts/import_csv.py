@@ -17,44 +17,6 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 
-# Output JSON structure
-# {
-# 	"permalink": "mandatory::<absolute url>",
-#   "videos": [{
-#     "url": "mandatory::<absolute url>",
-#     "type": "mandatory::<video/mp4>"
-#   }],
-# 	"images": [{
-# 		"caption": "mandatory::<text>",
-# 		"url": "mandatory::<absolute url>"
-#       "height": "mandatory::<absolute height in pixels>",
-#       "width": "mandatory::<absolute width in pixels>",
-# 	}],
-# 	"title": "mandatory::<title>",
-# 	"creator": "mandatory::<creator name>",
-# 	"creator_data": "optional::<unstructured text>",
-# 	"description": "mandatory::<unstructured text>",
-# 	"tags": [
-# 		"optional::<unstructured text>"
-# 	],	"creation_year": "optional::<year number",
-# 	"collection": "mandatory::<structured text>"
-# }
-
-# CSV structure
-# ID,NAME,n/a,URL,n/a
-# EXAMPLE
-# 218,White Corner,Film &amp; Video,https://org-kadist-kvl-media-output.s3-us-west-1.amazonaws.com/HLS/Alexandre_Arrechea/WhiteCorner2channelFINAL2/index.m3u8,,
-# CSV location
-# f'{os.getcwd()}/KADIST-Export.csv')
-
-# wordpress url template
-# f"https://kadist.org?page_id={ID}"
-# On each row, create a JSON object with the required fields and write it to a file
-# Attempt to scrape the video metadata from the provided URL template
-# f"https://kadist.org?page_id={ID}"
-# parse the returned HTML to determine what information should be in which field value on the output json.
-
-
 def get_wordpress_url(page_id):
     """Construct WordPress URL from page ID."""
     return f"https://kadist.org?page_id={page_id}"
