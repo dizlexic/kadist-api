@@ -1,6 +1,8 @@
 # Environments
 .env
 .venv
+.env.*
+!.env.example
 env/
 venv/
 ENV/
@@ -20,3 +22,7 @@ venv.bak/
 !**/.gitignore
 !**/.keep
 
+storage/tmp/*
+**/__pycache__
+
+*.txt

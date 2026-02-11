@@ -11,3 +11,8 @@ pre-commit
 python-dotenv
 botocore
 pillow
+requests
+requests-cache
+beautifulsoup4
+yake
+yt-dlp

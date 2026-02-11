@@ -18,31 +18,65 @@ from dotenv import load_dotenv
 from tqdm import tqdm
 from yt_dlp import YoutubeDL
 
-from lib.app_utils import clear_temporary_videos
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from lib.app_utils import clear_temporary_videos, get_robust_session
 from lib.dev_utils import image_url_to_data_uri
 from lib.s3helper import S3Helper
-from scripts.pipeline.external_videos import get_external_videos
+from scripts.pipeline.external_videos import get_external_video_data
 from scripts.pipeline.kview_videos import get_kview_videos
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ensure the project root is in the python path
 
 load_dotenv()
 
-config = dotenv_values("../../.env")
+config = dotenv_values(os.path.join(project_root, ".env"))
 TMP = os.getenv("TMP_DIR", f'{os.getcwd()}/storage/tmp')
-bucket_name = os.getenv("S3_BUCKET_NAME", "arpedia-dev")
+bucket_name = os.getenv("S3_BUCKET_NAME", "ktv")
 source_ip = os.getenv("KAPI_SOURCE_IP")
 source_url = os.getenv("KAPI_SOURCE_URL")
 
 
-requests_cache.CachedSession(
-    cache_name="../../storage/caches/kvl_cache", backend="sqlite", expire_after=60 * 96
+session = get_robust_session(
+    cache_name="storage/caches/kvl_cache", expire_after=60 * 96
 )  # minutes
 
 s3helper = S3Helper(bucket_name)
 
 # START DOWNLOAD FUNCTIONS
 ## Deprecated
+def ensure_faststart(filepath: str) -> bool:
+    """Re-mux an MP4 file with the moov atom at the start for streaming compatibility.
+
+    When MP4 files are created (e.g. by yt-dlp merging separate video/audio
+    streams), the moov atom that contains the video's metadata/index may be
+    placed at the end of the file.  Browsers need the moov atom before they
+    can begin playback, so large files with a trailing moov appear broken
+    when served over HTTP (especially via byte-range / progressive download).
+
+    This function re-muxes the file *in place* using ``ffmpeg -movflags
+    +faststart`` which relocates the moov atom to the beginning.
+    """
+    tmp_file = filepath + ".faststart.mp4"
+    cmd = (
+        f'ffmpeg -y -hide_banner -loglevel error '
+        f'-i "{filepath}" '
+        f'-c copy -movflags +faststart '
+        f'"{tmp_file}"'
+    )
+    if os.system(cmd) == 0 and os.path.exists(tmp_file) and os.path.getsize(tmp_file) > 0:
+        os.replace(tmp_file, filepath)
+        return True
+    else:
+        if os.path.exists(tmp_file):
+            os.remove(tmp_file)
+        print(f"WARNING: ensure_faststart failed for {filepath}")
+        return False
+
+
 def cloudflare_url(url: str) -> str:
     return url
 
@@ -55,7 +89,7 @@ def rm_json_files(folder: str):
 
 def url_exists(url):
     try:
-        r = requests.head(url, allow_redirects=True, timeout=10)
+        r = session.head(url, allow_redirects=True, timeout=10)
         return r.status_code == 200
     except requests.RequestException:
         return False
@@ -95,8 +129,9 @@ def generate_tags(text: str) -> List[str]:
 
 
 def generate_abbreviated_description(description: str) -> str:
+    if not description:
+        return ""
     return description.split(".")[0]
-
 
 def download_video_file_to_mp4(url: str):
     dest_file = f"{TMP}/{generate_id(url)}.mp4"
@@ -104,13 +139,37 @@ def download_video_file_to_mp4(url: str):
         print("local file exits serving it back!")
         return dest_file
     else:
-        print("no local file attempting to download")
-        cmd = f"ffmpeg -y -nostats -loglevel error -headers 'Referer: https://kadist.org/' -i \"{url}\" -map 0:p:1? -c copy -bsf:a aac_adtstoasc {dest_file}"
-        call = os.system(cmd)
-        if call == 0:
-            return dest_file
-        else:
-            print("could not download file", cmd)
+        print(f"no local file attempting to download: {url}")
+        # Optimization: Use ffmpeg with specific HLS options and a clear error level.
+        # -headers: Required for S3/HLS access if Referer is checked.
+        # -i: Input URL (works for both MP4 and M3U8).
+        # -c copy: Re-mux instead of re-encode to save CPU and time.
+        # -bsf:a aac_adtstoasc: Required when muxing HLS AAC into MP4.
+        # -map 0:p:1?: Safely attempts to map the second program/stream if available.
+
+        referer = "https://kadist.org/"
+        cmd = (
+            f'ffmpeg -y -hide_banner -loglevel error '
+            f'-headers "Referer: {referer}" '
+            f'-i "{url}" '
+            f'-c copy -bsf:a aac_adtstoasc '
+            f'-movflags +faststart '
+            f'"{dest_file}"'
+        )
+
+        try:
+            call = os.system(cmd)
+            if call == 0 and os.path.exists(dest_file) and os.path.getsize(dest_file) > 0:
+                return dest_file
+            else:
+                if os.path.exists(dest_file):
+                    os.remove(dest_file)
+                print("could not download or mux file", cmd)
+                return False
+        except Exception as e:
+            print(f"ffmpeg execution failed: {e}")
+            if os.path.exists(dest_file):
+                os.remove(dest_file)
             return False
 
 
@@ -251,7 +310,7 @@ def fetch_kvl(args, manifest_folder: str):
 
     url = "https://arpedia.herokuapp.com/arpedia/v1/not_null_search?count=1500"
 
-    r = requests.post(url, json=payload)
+    r = session.post(url, json=payload)
     if r.status_code == requests.codes.ok:
         for x in tqdm(r.json()["results"]):
             url = x["external_key"]
@@ -260,8 +319,7 @@ def fetch_kvl(args, manifest_folder: str):
                 continue
             url = cloudflare_url(url)
             print(f"fetch_kvl::fetching: {url}")
-            req = requests.get(url)
-            work_details = {}
+            req = session.get(url)
             if req.status_code == requests.codes.ok:
                 work_details = req.json()
             # grab the video from kadist and put it on arpedia's bucket
@@ -290,14 +348,16 @@ def fetch_kvl(args, manifest_folder: str):
                     "work_details": work_details,
                     "mp4_length": video_duration,
                 }
-                write_manifest("kvl", video, manifest_folder)
+                
                 clip_duration = 20.0
                 print("creating new clip for", video_id)
                 clip_manifest = generate_clip_and_write_to_s3(video, clip_duration)
                 if clip_manifest:
-                    write_manifest("kvl", clip_manifest, manifest_folder)
+                    video.update(clip_manifest)
                 else:
                     print("Failed to generate clip")
+
+                write_manifest("kvl", video, manifest_folder)
 
                 vfile = f"{TMP}/{video_id}.mp4"
                 if os.path.exists(vfile):
@@ -321,25 +381,35 @@ def fetch_kadist(args, manifest_folder: str):
 
         # START VIDEO REMOVAL
         def save_video_create_manifest(self, dest_file):
+            ensure_faststart(dest_file)
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
-            clipManifest = self.generate_save_clip()
+            
+            # Use a copy of manifest to avoid in-place modification issues if any
+            temp_video = self.manifest.copy()
+            updated_video = self.generate_save_clip(temp_video)
+            if updated_video:
+                self.manifest.update(updated_video)
+            else:
+                print(" *", "No clip manifest found or generation failed", dest_file)
+
             if os.path.exists(dest_file):
                 print(f" *", f"removing {dest_file}")
                 os.remove(dest_file)
-            write_manifest(self.video_type, self.manifest, self.manifest_folder)
-            if clipManifest:
-                write_manifest("clip", self.manifest, self.manifest_folder)
-            else:
-                print(" *", "No clip manifest found", dest_file)
 
-        def generate_save_clip(self):
-            print("yt dl ")
-            return generate_clip_and_write_to_s3(self.manifest, 20.0)
+            write_manifest(self.video_type, self.manifest, self.manifest_folder)
+
+        def generate_save_clip(self, video_dict=None):
+            if video_dict is None:
+                video_dict = self.manifest
+            print("generating clip...")
+            return generate_clip_and_write_to_s3(video_dict, 20.0)
         def callback(self, d):
             if d["status"] == "finished":
                 self.save_video_create_manifest(d["filename"])
 
         def process_description(self, s):
+            if not s:
+                return ""
             return s.split("\n")[0].strip()
 
         def format_upload_date(self, s):
@@ -353,6 +423,10 @@ def fetch_kadist(args, manifest_folder: str):
                 "noplaylist": True,
                 "verbose": True,
                 "progress_hooks": [self.callback],
+                "cookies": f'{os.getcwd()}/cookies.txt',
+                "http_headers": {
+                    "User-Agent": "AppleCoreMedia/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+                }
             }
 
             with YoutubeDL(ydl_opts) as ydl:
@@ -369,7 +443,14 @@ def fetch_kadist(args, manifest_folder: str):
 
                     dest_file = f"{TMP}/{video_id}.mp4"
 
-                    if s3helper.file_exists(dest_file):
+                    # Check S3 by key, not local path
+                    if s3helper.file_exists(f"{video_id}.mp4"):
+                        duration = 20.0
+                        temp_video = self.manifest.copy()
+                        updated_video = generate_clip_and_write_to_s3(temp_video, duration)
+                        if updated_video:
+                            self.manifest.update(updated_video)
+                        
                         write_manifest(
                             self.video_type, self.manifest, self.manifest_folder
                         )
@@ -382,7 +463,7 @@ def fetch_kadist(args, manifest_folder: str):
                     print("Error Downloading")
                     print(str(e))
 
-    with open("storage/config/kadist_videos.json") as f:
+    with open(os.path.join("storage", "config", "kadist_videos.json")) as f:
         videos = json.loads(f.read())
 
         for x in tqdm(videos):
@@ -415,24 +496,46 @@ def fetch_external(args, manifest_folder):
             self.video_type = "external"
 
         def save_video_create_manifest(self, dest_file):
+            # Ensure we have a valid video dictionary
+            if not hasattr(self, 'manifest') or not self.manifest:
+                print("Error: self.manifest is not initialized")
+                return
+
+            ensure_faststart(dest_file)
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
             duration = 20.0
-            generate_clip_and_write_to_s3(self.manifest, duration)
+            
+            # Use a copy of manifest to avoid in-place modification issues if any
+            temp_video = self.manifest.copy()
+            updated_video = generate_clip_and_write_to_s3(temp_video, duration)
+            if updated_video:
+                self.manifest.update(updated_video)
+            else:
+                print("No clip manifest found or generation failed")
+            
+            write_manifest(self.video_type, self.manifest, self.manifest_folder)
+            
             if os.path.exists(dest_file):
                 os.remove(dest_file)
-            write_manifest(self.video_type, self.manifest, self.manifest_folder)
 
         def callback(self, d):
             if d["status"] == "finished":
                 self.save_video_create_manifest(d["filename"])
 
         def process_description(self, s):
+            if not s:
+                return ""
             return s.split("\n")[0].strip()
 
         def format_upload_date(self, s):
-            return datetime.strptime(s, "%Y%m%d").strftime("%m/%d/%Y")
+            if not s:
+                return datetime.today().strftime("%m/%d/%Y")
+            try:
+                return datetime.strptime(s, "%Y%m%d").strftime("%m/%d/%Y")
+            except (ValueError, TypeError):
+                return datetime.today().strftime("%m/%d/%Y")
 
-        def download_video(self, url: str):
+        def download_video(self, url: str, extraInfo: dict = {}):
 
             ydl_opts = {
                 "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
@@ -440,20 +543,29 @@ def fetch_external(args, manifest_folder):
                 "noplaylist": True,
                 "verbose": True,
                 "progress_hooks": [self.callback],
+                "http_headers": {
+                    "User-Agent": "AppleCoreMedia/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+                }
             }
-
+            # User Agent Missing?
             with YoutubeDL(ydl_opts) as ydl:
                 try:
                     info_dict = ydl.extract_info(url, download=False)
-                    video_title = info_dict.get("title", None)
+                    video_title = extraInfo.get("title", info_dict.get("title", ""))
                     view_count = info_dict.get("view_count", 0)
-                    description = info_dict.get("description", None)
+                    description = extraInfo.get("description", '')
                     upload_date = info_dict.get("upload_date", None)
-                    tags = info_dict.get("tags", [])
-                    image_url = info_dict.get("thumbnail", None)
+                    tags = generate_tags(description) if description else []
+                    image_url = extraInfo.get("image_url", '')
+                    collection = extraInfo.get("collection", None)
+                    images = extraInfo.get("images", [])
+                    permalink = extraInfo.get("permalink", None)
 
-                    if description.startswith("Enjoy the videos"):
-                        description = ""
+                    if isinstance(image_url, dict):
+                        image_url = image_url.get("url", None)
+                    if collection:
+                        tags.append(collection)
+
 
                     self.manifest = {
                         "title": video_title,
@@ -466,6 +578,9 @@ def fetch_external(args, manifest_folder):
                         "image_url": image_url,
                         "tags": tags,
                         "region": "All",
+                        "images": images,
+                        "collection": collection,
+                        "permalink": permalink
                     }
 
                     video_id = generate_id(url)
@@ -479,11 +594,17 @@ def fetch_external(args, manifest_folder):
 
                     self.manifest["tags"] += generate_tags(self.manifest["description"])
 
-                    self.manifest["permalink"] = cloudflare_url(url)
+                    self.manifest["permalink"] = permalink
 
                     dest_file = f"{TMP}/{video_id}.mp4"
 
-                    if s3helper.file_exists(dest_file):
+                    # Check S3 by key, not local path
+                    if s3helper.file_exists(f"{video_id}.mp4"):
+                        duration = 20.0
+                        temp_manifest = generate_clip_and_write_to_s3(self.manifest, duration)
+                        if temp_manifest:
+                            self.manifest.update(temp_manifest)
+                        
                         write_manifest(
                             self.video_type, self.manifest, self.manifest_folder
                         )
@@ -499,11 +620,15 @@ def fetch_external(args, manifest_folder):
     if args.rm:
         s3helper.rm_files(args.rm)
     else:
-        external_videos = get_external_videos()
+        external_videos = get_external_video_data()
         print(" *", f"fetch_external, processing {len(external_videos)} videos")
 
-        for url in tqdm(external_videos):
-            YoutubeDownloader(manifest_folder).download_video(url)
+        try:
+            for data in tqdm(external_videos):
+                YoutubeDownloader(manifest_folder).download_video(data["video_url"], data)
+        except KeyboardInterrupt:
+            print("\n * Interrupted by user. Cleaning up and exiting fetch_external...")
+            
     print(" *", "fetch_external completed")
 
 def fetch_kviews(args, manifest_folder):
@@ -532,14 +657,15 @@ def fetch_kviews(args, manifest_folder):
                 "region": "All",
                 "mp4_length": video_duration,
             }
-            write_manifest(video_type, manifest, manifest_folder)
             clip_duration = 20.0
             print("creating new clip for", video_id, manifest["mp4"], manifest["mp4_length"])
             clip_manifest = generate_clip_and_write_to_s3(manifest, clip_duration)
             if clip_manifest:
-                write_manifest("kvl", clip_manifest, manifest_folder)
+                manifest.update(clip_manifest)
             else:
                 print("Failed to generate clip")
+
+            write_manifest(video_type, manifest, manifest_folder)
 
             vfile = f"{TMP}/{video_id}.mp4"
             if os.path.exists(vfile):
@@ -554,16 +680,12 @@ def fetch_kviews(args, manifest_folder):
 # START GENERATE CLIPS FUNCTIONS
 def _clipify(
         video_id: str, mp4: str, offset: float, duration: float, forcedownload: bool = False
-) -> str:
+) -> str | bool:
     dest_file = f"{TMP}/{video_id}_clip.mp4"
-    source_file = f"{TMP}/{video_id}.mp4"
-    if not os.path.exists(source_file):
-        print('source file doesnt exist :(')
-
     if not forcedownload and os.path.exists(dest_file):
         return dest_file
     else:
-        cmd = f"ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy {dest_file}"
+        cmd = f"ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy -movflags +faststart {dest_file}"
         print(" *", cmd)
         if os.system(cmd) == 0:
             return dest_file
@@ -603,12 +725,12 @@ def generate_clip_and_write_to_s3(
         print('video clip exists', video_id)
         forcedownload = forcedownload or offset != "auto"
 
-        if "mp4_length" not in video:
+        if "mp4_length" not in video or not video["mp4_length"]:
             print('no mp4_length')
             video_length = _get_video_length(video_id, mp4)
             if video_length:
                 print('video length', video_length)
-                video["mp4_length"] = video.get("mp4_length", video_length)
+                video["mp4_length"] = video_length
             else:
                 print(" *", f"ERROR: could not get video length for {video_id}")
                 return False
@@ -643,6 +765,10 @@ def generate_clip_and_write_to_s3(
                 video[
                     "mp4_clip"
                 ] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
+            else:
+                # If clip generation failed, we still want to keep existing mp4_clip if it exists
+                if clip_exists:
+                     video["mp4_clip"] = f"https://s3.amazonaws.com/{bucket_name}/{clip_object}"
 
         return video
     print("clip gen failed with no video exists?")

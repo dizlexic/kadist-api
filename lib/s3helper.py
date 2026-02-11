@@ -34,6 +34,11 @@ class S3Helper:
     def put_file(self, name: str, abspath: str, only_if_modified: bool = True) -> str:
         obj = self.s3.Object(self.bucket.name, name)
 
+        extra_args = {}
+        if name.lower().endswith(".mp4"):
+            extra_args["ContentType"] = "video/mp4"
+            extra_args["ContentDisposition"] = "inline"
+
         if only_if_modified:
             if os.path.exists(abspath):
                 size_on_s3 = self.file_size(name)
@@ -47,14 +52,14 @@ class S3Helper:
                         return
 
         print(" *", f"putting {name} on S3 from {abspath}...")
-        obj.upload_file(abspath)
-        obj.Acl().put(ACL="public-read")
+        obj.upload_file(abspath, ExtraArgs=extra_args)
+        # obj.Acl().put(ACL="public-read")
 
     def write_json(self, name: str, obj: Union[Dict, Sequence]) -> int:
         obj_data = json.dumps(obj, indent=2)
         obj = self.s3.Object(self.bucket.name, name)
-
-        obj.put(Body=obj_data, ACL="public-read", ContentType="application/json")
+        obj.put(Body=obj_data, ContentType="application/json")
+        # obj.put(Body=obj_data, ACL="public-read", ContentType="application/json")
         return obj.content_length
 
     def read_json(self, name: str) -> Union[Dict, Sequence]:
@@ -91,7 +96,11 @@ class S3Helper:
             return obj.content_length
         except self.s3.meta.client.exceptions.NoSuchKey:
             return -1
-
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                return -1
+            else:
+                raise
     def list_files(self):
         if not self.cached_bucket_list:
             self.cached_bucket_list = [

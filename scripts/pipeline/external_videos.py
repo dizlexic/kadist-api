@@ -1,141 +1,232 @@
+import csv
+import html
 import json
 import os
-import random
 import sys
-import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Optional, Sequence, Union
 
-import requests
 import requests_cache
+from bs4 import BeautifulSoup
 from tqdm import tqdm
-from youtubesearchpython import VideosSearch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-requests_cache.CachedSession(
-    cache_name="../../storage/caches/videos_search_cache", backend="sqlite", expire_after=60 * 60 * 24 * 7
-)  # expire_after in seconds
+# Cache requests to avoid re-scraping WordPress for the same page during runs.
+session = requests_cache.CachedSession(
+    cache_name="storage/caches/videos_search_cache",
+    backend="sqlite",
+    expire_after=60 * 60 * 24 * 7,  # 7 days
+)
+
+CSV_PATH = os.path.join(os.getcwd(), "KADIST-Export.csv")
+OUTPUT_PATH = os.path.join("storage", "config", "external_videos.json")
 
 
-MAX_VIDEOS_PER_SEARCH = 1
-
-VIDEO_DEFAULT_LINKS = [
-    "https://www.youtube.com/watch?v=vTnmO6UXFUc",
-    "https://www.youtube.com/watch?v=L_gAQNuDUOo",
-    "https://www.youtube.com/watch?v=0bFZ4gcsAPA",
-    "https://www.youtube.com/watch?v=6A-GKr1vRE0",
-    "https://www.youtube.com/watch?v=TBjM7gKblWU",
-    "https://www.youtube.com/watch?v=1ELmm-jNkLs",
-    "https://www.youtube.com/watch?v=ou2Ipfy3f2E",
-    "https://www.youtube.com/watch?v=yDapK6Vj4Fo",
-    "https://www.youtube.com/watch?v=VELZDdxcuxU",
-    "https://www.youtube.com/watch?v=KWkhXCFq-C4",
-    "https://www.youtube.com/watch?v=0ZZn7_44_B4",
-    "https://www.youtube.com/watch?v=T-Av2XKJ16A",
-    "https://www.youtube.com/watch?v=zk5uh1uV3jA",
-    "https://www.youtube.com/watch?v=TdgyX3cwZy4",
-    "https://www.youtube.com/watch?v=JEvT0c5NaLQ",
-    "https://www.youtube.com/watch?v=CATey5LcEF4",
-    "https://www.youtube.com/watch?v=fEsPdNEKYAE",
-]
-
-VIDEO_SEARCH_ERRATA = [
-    "Ketchup Session",
-    "Magalí Arriola",
-    "Pável Aguilar",
-    "Carlos Amorales",
-    "Edgardo Aragón",
-    "Jorge Julián Aristizábal",
-    "Adriana Bustos",
-    "Fredi Casco",
-    "Rometti Costales",
-    "Aria Dean",
-    "Sam Durant",
-    "Pierre Huyghe",
-    "Cristóbal Lehyt",
-    "Jesse Lerner",
-    "Alfredo López Morales",
-    "Noé Martinez",
-    "Cildo Meireles",
-    "Eustáquio Neves Juatuba",
-    "Nohemí Pérez",
-    "Naufus Ramírez Figueroa",
-    "Carla Zaccagnini",
-    "Iheanyi Onwuegbucha",
-    "El Anatsui",
-    "Ntshepe Tsekere Bopape",
-    "Nidhal Chamekh",
-    "Bady Dalloul",
-    "Rahima Gambo",
-    "Goddy Leye",
-    "Abraham Oghobase",
-    "Wura-Natasha Ogunji",
-    "Chloé Quenum",
-    "Abraham Oghobase",
-    "Nidhal Chamekh",
-    "Fanny Souade Sow",
-]
+def get_wordpress_url(page_id: str) -> str:
+    return f"https://kadist.org?page_id={page_id}"
 
 
-def get_external_videos():
-    """get a list of youtube URLs, only the link is returned."""
-    file_path = os.path.join("storage", "config", "external_videos.json")
-    with open(file_path) as f:
-        return [x for x in set(json.loads(f.read()))]
+def _safe_text(node) -> str:
+    return node.get_text(" ", strip=True) if node else ""
 
 
-def search_youtube_by_keyword(
-    artist_name, min_view_count, max_videos_per_search=MAX_VIDEOS_PER_SEARCH
-):
-    """returns only the video link"""
+def scrape_wordpress_page(page_id: str) -> Dict[str, Union[str, List[Dict[str, str]]]]:
+    url = get_wordpress_url(page_id)
+    try:
+        r = session.get(url, timeout=20)
+        r.raise_for_status()
+    except Exception as exc:
+        print(f" * failed to fetch {url}: {exc}")
+        return {
+            "permalink": url,
+            "title": "",
+            "description": "",
+            "tags": [],
+            "images": [],
+            "videos": [],
+        }
 
-    vs = VideosSearch(f"{artist_name} artist", limit=max_videos_per_search)
-    for result in vs.result()["result"]:
-        var = result["title"]
-        if "type" in result and result["type"] == "video":
-            if result["viewCount"]["text"]:
-                view_count_chars = "".join(
-                    [i for i in result["viewCount"]["text"] if i.isdigit()]
-                )
-                view_count = int(view_count_chars) if view_count_chars else 0
-                if view_count >= view_count:
-                    return result["link"]
+    soup = BeautifulSoup(r.content, "html.parser")
+    title_tag = soup.find("h1") or soup.find("title")
+    description = soup.find(class_="article-body").text.strip()
+    abbreviated_description = description[:200] + "..." if description else ""
+
+    # Prefer og:image then first <img>
+    images: List[Dict[str, str]] = []
+    og_image = soup.find("meta", {"property": "og:image"})
+    if og_image and og_image.get("content"):
+        images.append({"url": og_image.get("content"), "caption": ""})
+    for img in soup.find_all("img"):
+        src = img.get("src")
+        if src and src.startswith("http") and all(img.get("src") != i.get("url") for i in images):
+            images.append(
+                {
+                    "url": src,
+                    "caption": img.get("alt", ""),
+                    "width": img.get("width", ""),
+                    "height": img.get("height", ""),
+                }
+            )
+
+    tags: List[str] = []
+    tag_nodes = soup.find_all("meta", {"property": "article:tag"}) or soup.find_all(class_="tag")
+    for tag in tag_nodes:
+        content = tag.get("content") if tag.name == "meta" else _safe_text(tag)
+        if content:
+            tags.append(content)
+
+    videos: List[Dict[str, str]] = []
+    # look for <source> tags inside <video>
+    for video in soup.find_all("video"):
+        for source in video.find_all("source"):
+            src = source.get("src")
+            if src:
+                videos.append({"url": src, "type": source.get("type", "")})
+    # also look for iframes that might contain mp4/m3u8 links
+    for iframe in soup.find_all("iframe"):
+        src = iframe.get("src")
+        if src and src.startswith("http"):
+            videos.append({"url": src, "type": "iframe"})
 
 
-def generate_external_video_list(min_view_count, include_search=True):
-    """For each Kadist artist search Youtube for video"""
-    arpedia_url = "https://arpedia.herokuapp.com/arpedia/v1/kadist_artists?only_include_artist_names=true"
-    r = requests.get(arpedia_url)
-    if r.status_code == requests.codes.ok:
-        kadist_artists = r.json()["result"]
+    try:
+        image_url = images[1]["url"]
+    except IndexError:
+        image_url = images[0]["url"]
 
-        videos = VIDEO_DEFAULT_LINKS
+    return {
+        "image_url": image_url,
+        "permalink": url,
+        "title": _safe_text(title_tag),
+        "description": description,
+        "tags": tags,
+        "images": images,
+        "videos": videos,
+        "abbreviated_description": abbreviated_description,
+    }
 
-        if include_search:
-            all_artists = set(kadist_artists + VIDEO_SEARCH_ERRATA)
 
-            # reduced set, remove for all yt content
-            # all_artists = set(VIDEO_SEARCH_ERRATA)
+def read_csv_rows(csv_path: str) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    if not os.path.exists(csv_path):
+        print(f" * CSV file not found at {csv_path}")
+        return rows
 
-            for artist_name in tqdm(all_artists):
+    with open(csv_path, "r", encoding="utf-8") as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            if not row or not row[0].strip():
+                continue
+            page_id = row[0].strip()
+            name = html.unescape(row[1].strip()) if len(row) > 1 else ""
+            collection = html.unescape(row[2].strip()) if len(row) > 2 else ""
+            video_url = row[3].strip() if len(row) > 3 else ""
+            rows.append(
+                {
+                    "page_id": page_id,
+                    "name": name,
+                    "collection": collection,
+                    "video_url": video_url,
+                }
+            )
+    return rows
 
-                time.sleep(0.1 + random.randint(10, 35) / 100)
 
-                video_link = search_youtube_by_keyword(artist_name, min_view_count)
-                if video_link and video_link not in videos:
-                    videos.append(video_link)
+def build_video_entry(row: Dict[str, str]) -> Optional[Dict[str, Union[str, Sequence]]]:
+    page_id = row.get("page_id", "")
+    scraped = scrape_wordpress_page(page_id)
 
-        if videos:
-            try:
-                os.makedirs("storage/config", exist_ok=True)  # Ensure directory exists
-                file_path = os.path.join("storage", "config", "external_videos.json")
-                with open(file_path, "w") as f:
-                    f.write(json.dumps(videos, indent=2, ensure_ascii=False))
-                return videos
-            except Exception as e:
-                print(f"Error while writing to file: {e}")
-                return None
+    # merge fields with preference: scraped -> CSV
+    entry: Dict[str, Union[str, Sequence]] = {
+        "id": page_id,
+        "permalink": scraped.get("permalink", get_wordpress_url(page_id)),
+        "title": scraped.get("title") or row.get("name", ""),
+        "collection": row.get("collection", ""),
+        "description": scraped.get("description", ""),
+        "tags": scraped.get("tags", []),
+        "images": scraped.get("images", []),
+        "image_url": scraped.get("image_url", ""),
+        "abbreviated_description": scraped.get("abbreviated_description", ""),
+    }
+
+    # Prefer CSV video_url, fall back to scraped videos
+    csv_video_url = row.get("video_url", "")
+    video_url = csv_video_url or None
+    if not video_url:
+        scraped_videos = scraped.get("videos", []) or []
+        if scraped_videos:
+            video_url = scraped_videos[0].get("url")
+    if not video_url:
+        return None
+
+    entry["video_url"] = video_url
+    return entry
+
+
+def write_if_changed(path: str, data: Sequence[Dict]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    new_payload = json.dumps(data, indent=2, ensure_ascii=False)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            if f.read() == new_payload:
+                print(f" * no changes detected in {path}")
+                return
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(new_payload)
+    print(f" * wrote {len(data)} entries to {path}")
+
+
+def get_external_videos() -> List[str]:
+    """Return list of video URLs for downloader compatibility."""
+    if not os.path.exists(OUTPUT_PATH):
+        return []
+    with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
+        payload = json.loads(f.read())
+    urls: List[str] = []
+    for item in payload:
+        if isinstance(item, str):
+            urls.append(item)
+        elif isinstance(item, dict):
+            url = item.get("video_url") or item.get("url")
+            if url:
+                urls.append(url)
+    return urls
+
+def get_external_video_data() -> List[Dict]:
+    """Return list of video URLs for downloader compatibility."""
+    if not os.path.exists(OUTPUT_PATH):
+        return []
+    with open(OUTPUT_PATH, "r", encoding="utf-8") as f:
+        payload = json.loads(f.read())
+    return payload
+
+
+def generate_external_video_list(csv_path: str = CSV_PATH) -> List[Dict]:
+    rows = read_csv_rows(csv_path)
+    if not rows:
+        print(" * no rows to process")
+        return []
+
+    videos: List[Dict] = []
+    seen = set()
+
+    max_workers = min(8, max(1, os.cpu_count() or 2))
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {ex.submit(build_video_entry, row): row for row in rows}
+        for fut in tqdm(as_completed(futures), total=len(futures)):
+            entry = fut.result()
+            if not entry:
+                continue
+            url = entry.get("video_url")
+            if url and url not in seen:
+                seen.add(url)
+                videos.append(entry)
+
+    write_if_changed(OUTPUT_PATH, videos)
+    return videos
 
 
 if __name__ == "__main__":
-    videos = generate_external_video_list(min_view_count=50, include_search=True)
-    print(" *", f"written {len(videos)} videos")
+    videos = generate_external_video_list()
+    print(" *", f"processed {len(videos)} entries from CSV")

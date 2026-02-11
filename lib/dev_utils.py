@@ -2,21 +2,23 @@
 import argparse
 import base64
 from io import BytesIO
+import os
 from tempfile import NamedTemporaryFile
 from typing import List, Sequence
-
 import PIL
 import requests
 import requests_cache
 import urllib3
 from PIL import Image, ImageFile
 
+from .app_utils import get_robust_session
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 urllib3.disable_warnings()
 
-requests_cache.CachedSession(
-    cache_name="storage/caches/poster_cache", backend="sqlite", expire_after=60 * 96
+session = get_robust_session(
+    cache_name="storage/caches/poster_cache", expire_after=60 * 96
 )  # minutes
 
 
@@ -43,10 +45,21 @@ def f7(seq: Sequence[str]) -> List[str]:
 
 def download_video_file(url):
     print("download_video_file", url)
-    with requests.get(url, stream=True, headers={"referer": "http://kadist.org/"}) as r:
+    if not url:
+        return None
+
+    # Extract extension safely, default to mp4 if split fails or is missing
+    try:
+        ext = url.split('.')[-1].split('?')[0]  # Handle query params
+        if len(ext) > 4 or not ext:
+            ext = "mp4"
+    except (AttributeError, IndexError):
+        ext = "mp4"
+
+    with session.get(url, stream=True, headers={"referer": "http://kadist.org/"}) as r:
         r.raise_for_status()
         with NamedTemporaryFile(
-                prefix="video_", suffix=f".{url.split('.')[-1]}", delete=False
+                prefix="video_", suffix=f".{ext}", delete=False
         ) as f:
             for chunk in r.iter_content(chunk_size=65536):
                 f.write(chunk)
@@ -56,7 +69,7 @@ def download_video_file(url):
 def image_url_to_data_uri(imgurl: str):
     max_size = 400, 400
     try:
-        with requests.get(imgurl.strip(), timeout=60, verify=False, stream=True) as r:
+        with session.get(imgurl.strip(), timeout=60, verify=False, stream=True) as r:
             r.raise_for_status()  # Raises HTTPError if the HTTP request failed
 
             buffer = BytesIO()
