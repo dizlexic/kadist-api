@@ -69,6 +69,111 @@ class TestMoovBeforeMdat(unittest.TestCase):
             self.assertIsNone(result)
 
 
+class TestMoovBeforeMdatSynthetic(unittest.TestCase):
+    """Test moov_before_mdat with synthetic binary data for edge cases."""
+
+    def _make_box(self, box_type, size=None, data=b"", extended=False):
+        """Build a raw MP4 box.
+
+        Parameters
+        ----------
+        box_type : bytes
+            4-byte box type (e.g. b"ftyp").
+        size : int, optional
+            Explicit total size.  Computed automatically when *None*.
+        data : bytes
+            Box payload.
+        extended : bool
+            If True, use 64-bit extended size header (size field == 1).
+        """
+        if extended:
+            total = 16 + len(data)  # 8 header + 8 extended size + payload
+            return (
+                (1).to_bytes(4, "big")
+                + box_type
+                + total.to_bytes(8, "big")
+                + data
+            )
+        total = size if size is not None else 8 + len(data)
+        return total.to_bytes(4, "big") + box_type + data
+
+    def test_mdat_with_size_zero(self):
+        """size==0 means the box extends to EOF; moov after mdat should return False."""
+        ftyp = self._make_box(b"ftyp", data=b"\x00" * 4)
+        # mdat with size 0 (extends to EOF), followed by nothing — but we
+        # need moov after, so we build mdat with explicit size 0 and then moov.
+        # However, size-0 means rest-of-file, so moov wouldn't be reachable.
+        # The realistic case: mdat size==0 is the last box → moov not found → None.
+        mdat = (0).to_bytes(4, "big") + b"mdat" + b"\x00" * 10
+        moov = self._make_box(b"moov", data=b"\x00" * 4)
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+            f.write(ftyp + mdat + moov)
+            path = f.name
+        try:
+            # size-0 mdat consumes rest of file, so moov is hidden
+            result = moov_before_mdat(path)
+            self.assertIsNone(result)
+        finally:
+            os.unlink(path)
+
+    def test_mdat_with_extended_size_moov_after(self):
+        """mdat using 64-bit extended size, moov comes after → False."""
+        ftyp = self._make_box(b"ftyp", data=b"\x00" * 4)
+        mdat_payload = b"\x00" * 20
+        mdat = self._make_box(b"mdat", data=mdat_payload, extended=True)
+        moov = self._make_box(b"moov", data=b"\x00" * 4)
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+            f.write(ftyp + mdat + moov)
+            path = f.name
+        try:
+            result = moov_before_mdat(path)
+            self.assertIs(result, False)
+        finally:
+            os.unlink(path)
+
+    def test_moov_with_extended_size_before_mdat(self):
+        """moov using 64-bit extended size before mdat → True."""
+        ftyp = self._make_box(b"ftyp", data=b"\x00" * 4)
+        moov = self._make_box(b"moov", data=b"\x00" * 4, extended=True)
+        mdat = self._make_box(b"mdat", data=b"\x00" * 20)
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+            f.write(ftyp + moov + mdat)
+            path = f.name
+        try:
+            result = moov_before_mdat(path)
+            self.assertIs(result, True)
+        finally:
+            os.unlink(path)
+
+    def test_normal_mdat_moov_after(self):
+        """Normal 32-bit sizes, moov after mdat → False."""
+        ftyp = self._make_box(b"ftyp", data=b"\x00" * 4)
+        mdat = self._make_box(b"mdat", data=b"\x00" * 20)
+        moov = self._make_box(b"moov", data=b"\x00" * 4)
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+            f.write(ftyp + mdat + moov)
+            path = f.name
+        try:
+            result = moov_before_mdat(path)
+            self.assertIs(result, False)
+        finally:
+            os.unlink(path)
+
+    def test_normal_moov_before_mdat(self):
+        """Normal 32-bit sizes, moov before mdat → True."""
+        ftyp = self._make_box(b"ftyp", data=b"\x00" * 4)
+        moov = self._make_box(b"moov", data=b"\x00" * 4)
+        mdat = self._make_box(b"mdat", data=b"\x00" * 20)
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+            f.write(ftyp + moov + mdat)
+            path = f.name
+        try:
+            result = moov_before_mdat(path)
+            self.assertIs(result, True)
+        finally:
+            os.unlink(path)
+
+
 class TestScriptImport(unittest.TestCase):
     def test_fix_s3_faststart_is_importable(self):
         """The fix script should be importable without errors."""

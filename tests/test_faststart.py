@@ -33,9 +33,11 @@ def _moov_before_mdat(filepath):
     """
     moov_offset = None
     mdat_offset = None
+    file_size = os.path.getsize(filepath)
     with open(filepath, "rb") as f:
         offset = 0
-        while True:
+        while offset < file_size:
+            f.seek(offset)
             header = f.read(8)
             if len(header) < 8:
                 break
@@ -45,10 +47,18 @@ def _moov_before_mdat(filepath):
                 moov_offset = offset
             elif box_type == b"mdat":
                 mdat_offset = offset
+            if size == 1:
+                # 64-bit extended size
+                ext = f.read(8)
+                if len(ext) < 8:
+                    break
+                size = int.from_bytes(ext, "big")
+            if size == 0:
+                # Box extends to end of file
+                size = file_size - offset
             if size < 8:
                 break
             offset += size
-            f.seek(offset)
     if moov_offset is not None and mdat_offset is not None:
         return moov_offset < mdat_offset
     return None
