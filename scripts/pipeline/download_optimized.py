@@ -48,6 +48,35 @@ s3helper = S3Helper(bucket_name)
 
 # START DOWNLOAD FUNCTIONS
 ## Deprecated
+def ensure_faststart(filepath: str) -> bool:
+    """Re-mux an MP4 file with the moov atom at the start for streaming compatibility.
+
+    When MP4 files are created (e.g. by yt-dlp merging separate video/audio
+    streams), the moov atom that contains the video's metadata/index may be
+    placed at the end of the file.  Browsers need the moov atom before they
+    can begin playback, so large files with a trailing moov appear broken
+    when served over HTTP (especially via byte-range / progressive download).
+
+    This function re-muxes the file *in place* using ``ffmpeg -movflags
+    +faststart`` which relocates the moov atom to the beginning.
+    """
+    tmp_file = filepath + ".faststart.mp4"
+    cmd = (
+        f'ffmpeg -y -hide_banner -loglevel error '
+        f'-i "{filepath}" '
+        f'-c copy -movflags +faststart '
+        f'"{tmp_file}"'
+    )
+    if os.system(cmd) == 0 and os.path.exists(tmp_file) and os.path.getsize(tmp_file) > 0:
+        os.replace(tmp_file, filepath)
+        return True
+    else:
+        if os.path.exists(tmp_file):
+            os.remove(tmp_file)
+        print(f"WARNING: ensure_faststart failed for {filepath}")
+        return False
+
+
 def cloudflare_url(url: str) -> str:
     return url
 
@@ -352,6 +381,7 @@ def fetch_kadist(args, manifest_folder: str):
 
         # START VIDEO REMOVAL
         def save_video_create_manifest(self, dest_file):
+            ensure_faststart(dest_file)
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
             
             # Use a copy of manifest to avoid in-place modification issues if any
@@ -471,6 +501,7 @@ def fetch_external(args, manifest_folder):
                 print("Error: self.manifest is not initialized")
                 return
 
+            ensure_faststart(dest_file)
             s3helper.put_file(f"{self.manifest['id']}.mp4", dest_file)
             duration = 20.0
             
@@ -654,7 +685,7 @@ def _clipify(
     if not forcedownload and os.path.exists(dest_file):
         return dest_file
     else:
-        cmd = f"ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy {dest_file}"
+        cmd = f"ffmpeg -y -nostats -loglevel error -ss {offset} -i {mp4} -t {duration} -c copy -movflags +faststart {dest_file}"
         print(" *", cmd)
         if os.system(cmd) == 0:
             return dest_file
