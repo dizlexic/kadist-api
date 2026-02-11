@@ -24,3 +24,5 @@ venv.bak/
 
 storage/tmp/*
 **/__pycache__
+
+*.txt
